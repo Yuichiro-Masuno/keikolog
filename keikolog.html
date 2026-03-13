@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>keikolog</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&family=Noto+Sans+JP:wght@300;400;500&display=swap');
+
+:root {
+  --ink: #1a1a2e;
+  --ink-light: #4a4a6a;
+  --paper: #f5f0e8;
+  --paper-dark: #ede5d0;
+  --accent: #8b1a1a;
+  --accent-light: #c0392b;
+  --gold: #c9a84c;
+  --border: #d4c5a9;
+  --white: #fdfaf5;
+  --shadow: rgba(26,26,46,0.12);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Noto Sans JP', sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  min-height: 100vh;
+}
+
+header {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 12px var(--shadow);
+}
+header h1 {
+  font-family: 'Noto Serif JP', serif;
+  font-size: 1.4rem;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+}
+header span { font-size: 0.75rem; color: var(--border); }
+
+.tabs {
+  display: flex;
+  background: var(--ink);
+  border-top: 1px solid #2a2a4e;
+}
+.tab {
+  flex: 1;
+  padding: 10px 4px;
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--border);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+.tab.active { color: var(--gold); border-bottom: 2px solid var(--gold); }
+
+main { padding: 16px; max-width: 640px; margin: 0 auto; }
+
+.view { display: none; }
+.view.active { display: block; }
+
+.card {
+  background: var(--white);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 4px var(--shadow);
+}
+.card-title {
+  font-family: 'Noto Serif JP', serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+  letter-spacing: 0.08em;
+}
+
+label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--ink-light);
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+input[type="text"], input[type="date"], input[type="time"],
+input[type="number"], select, textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 0.85rem;
+  background: var(--white);
+  color: var(--ink);
+  margin-bottom: 10px;
+  transition: border-color 0.2s;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+textarea { resize: vertical; min-height: 72px; }
+
+.row { display: flex; gap: 10px; }
+.row > * { flex: 1; }
+
+.check-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.check-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--paper);
+  transition: all 0.15s;
+}
+.check-item input[type="checkbox"]:checked + span { color: var(--accent); }
+.check-item:has(input:checked) {
+  background: #f9eaea;
+  border-color: var(--accent);
+}
+.check-item input { accent-color: var(--accent); }
+
+/* Partner tags */
+.partner-wrap { margin-bottom: 10px; }
+.partner-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+  min-height: 24px;
+}
+.partner-tag {
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 0.72rem;
+  padding: 3px 10px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.partner-tag button {
+  background: none;
+  border: none;
+  color: #aaa;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+}
+.suggest-wrap { position: relative; }
+.suggest-list {
+  position: absolute;
+  top: 100%;
+  left: 0; right: 0;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  z-index: 20;
+  max-height: 140px;
+  overflow-y: auto;
+  box-shadow: 0 4px 12px var(--shadow);
+  display: none;
+}
+.suggest-list.open { display: block; }
+.suggest-item {
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--paper-dark);
+}
+.suggest-item:hover { background: var(--paper); }
+
+/* Session blocks */
+.session-block {
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 8px;
+}
+.session-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink-light);
+  margin-bottom: 10px;
+}
+
+.btn-remove {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--ink-light);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  font-family: 'Noto Sans JP', sans-serif;
+}
+.btn-remove:hover { border-color: var(--accent); color: var(--accent); }
+
+.btn-add {
+  width: 100%;
+  padding: 9px;
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  color: var(--ink-light);
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-family: 'Noto Sans JP', sans-serif;
+  transition: all 0.15s;
+  margin-bottom: 4px;
+}
+.btn-add:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Session type pills */
+.session-type-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.pill {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--paper);
+  font-size: 0.78rem;
+  cursor: pointer;
+  font-family: 'Noto Sans JP', sans-serif;
+  color: var(--ink-light);
+  transition: all 0.15s;
+}
+.pill.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--gold);
+}
+
+/* Suburi row */
+.suburi-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+.suburi-row .suggest-wrap { flex: 1; }
+.suburi-row input[type="number"] { width: 80px; margin-bottom: 0; }
+
+.btn-submit {
+  width: 100%;
+  padding: 14px;
+  background: var(--accent);
+  color: var(--white);
+  border: none;
+  border-radius: 8px;
+  font-family: 'Noto Serif JP', serif;
+  font-size: 1rem;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: background 0.2s;
+}
+.btn-submit:hover { background: var(--accent-light); }
+
+/* List */
+.log-item {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: 0 1px 3px var(--shadow);
+}
+.log-item:hover { border-color: var(--accent); transform: translateY(-1px); }
+.log-date {
+  font-family: 'Noto Serif JP', serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+.log-place { font-size: 0.78rem; color: var(--ink-light); margin-bottom: 6px; }
+.log-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.tag {
+  font-size: 0.68rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--paper-dark);
+  color: var(--ink-light);
+  border: 1px solid var(--border);
+}
+.tag.home { background: #e8f0e8; color: #2d6a2d; border-color: #a8c8a8; }
+.tag.away { background: #f5e8e8; color: var(--accent); border-color: #d4a8a8; }
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--ink-light);
+  font-size: 0.85rem;
+}
+.empty-icon { font-size: 3rem; margin-bottom: 12px; }
+
+/* Settings */
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--paper-dark);
+  font-size: 0.85rem;
+}
+.setting-row:last-child { border-bottom: none; }
+.setting-list { list-style: none; }
+.setting-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 0.82rem;
+  border-bottom: 1px solid var(--paper-dark);
+}
+.setting-list-item:last-child { border-bottom: none; }
+.btn-del {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--ink-light);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  font-family: 'Noto Sans JP', sans-serif;
+}
+.btn-del:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(26,26,46,0.55);
+  z-index: 150;
+  align-items: flex-end;
+  justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--white);
+  width: 100%;
+  max-width: 640px;
+  border-radius: 16px 16px 0 0;
+  padding: 20px;
+  max-height: 82vh;
+  overflow-y: auto;
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.modal-title {
+  font-family: 'Noto Serif JP', serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--ink-light);
+  line-height: 1;
+}
+.d-label { font-size: 0.7rem; color: var(--ink-light); margin-bottom: 2px; font-weight: 500; }
+.d-value { font-size: 0.85rem; margin-bottom: 10px; }
+.d-section {
+  background: var(--paper);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+}
+.d-section-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--ink);
+  color: var(--gold);
+  padding: 10px 24px;
+  border-radius: 24px;
+  font-size: 0.82rem;
+  font-family: 'Noto Serif JP', serif;
+  z-index: 300;
+  transition: transform 0.3s ease;
+  pointer-events: none;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+/* Confirm dialog */
+.confirm-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(26,26,46,0.55);
+  z-index: 400;
+  align-items: center;
+  justify-content: center;
+}
+.confirm-overlay.open { display: flex; }
+.confirm-dialog {
+  background: var(--white);
+  border-radius: 12px;
+  padding: 24px 20px 16px;
+  width: 280px;
+  box-shadow: 0 8px 32px var(--shadow);
+}
+.confirm-msg {
+  font-size: 0.88rem;
+  color: var(--ink);
+  line-height: 1.6;
+  margin-bottom: 18px;
+  text-align: center;
+}
+.confirm-btns {
+  display: flex;
+  gap: 8px;
+}
+.confirm-cancel {
+  flex: 1;
+  padding: 10px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 0.85rem;
+  color: var(--ink-light);
+  cursor: pointer;
+}
+.confirm-cancel:hover { border-color: var(--ink-light); }
+.confirm-ok {
+  flex: 1;
+  padding: 10px;
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 0.85rem;
+  color: var(--white);
+  cursor: pointer;
+}
+.confirm-ok:hover { background: var(--accent-light); }
+
+@media (max-width: 400px) {
+  .check-group { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>稽古録</h1>
+  <span>keikolog</span>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('list')">📋 稽古一覧</div>
+  <div class="tab" onclick="switchTab('new')">✏️ 記録する</div>
+  <div class="tab" onclick="switchTab('settings')">⚙️ 設定</div>
+</div>
+
+<main>
+
+<!-- ─── LIST ─── -->
+<div id="view-list" class="view active">
+  <div id="log-list"></div>
+</div>
+
+<!-- ─── NEW ENTRY ─── -->
+<div id="view-new" class="view">
+
+  <!-- 基本情報 -->
+  <div class="card">
+    <div class="card-title" id="new-title">📅 基本情報</div>
+    <div class="row">
+      <div>
+        <label>稽古日</label>
+        <input type="date" id="f-date">
+      </div>
+      <div>
+        <label>開始時刻</label>
+        <input type="time" id="f-time">
+      </div>
+    </div>
+    <label>稽古場所</label>
+    <select id="f-place" onchange="checkHome()">
+      <option value="">道場を選択</option>
+    </select>
+    <div id="home-badge"></div>
+    <label>使用竹刀（デフォルト）</label>
+    <select id="f-shinai">
+      <option value="">竹刀を選択</option>
+    </select>
+  </div>
+
+  <!-- 稽古種別 -->
+  <div class="card">
+    <div class="card-title">🥋 稽古種別を追加</div>
+    <div class="session-type-pills">
+      <div class="pill" onclick="addSession('kihon')">＋ 基本稽古</div>
+      <div class="pill" onclick="addSession('jigeiko')">＋ 地稽古</div>
+      <div class="pill" onclick="addSession('kata')">＋ 形稽古</div>
+      <div class="pill" onclick="addSession('suburi')">＋ 素振り稽古</div>
+    </div>
+    <div id="sessions-container"></div>
+  </div>
+
+  <button class="btn-submit" onclick="saveEntry()">稽古を記録する</button>
+</div>
+
+<!-- ─── SETTINGS ─── -->
+<div id="view-settings" class="view">
+
+  <!-- 道場マスター -->
+  <div class="card">
+    <div class="card-title">🏯 道場マスター</div>
+    <div class="row" style="align-items:flex-end;">
+      <div>
+        <label>道場名</label>
+        <input type="text" id="dojo-name-input" placeholder="例：○○道場">
+      </div>
+      <div style="flex:0;">
+        <button class="btn-submit" style="padding:9px 16px;margin-top:0;font-size:0.82rem;" onclick="addDojo()">追加</button>
+      </div>
+    </div>
+    <label style="margin-top:4px;">ホーム道場</label>
+    <select id="home-dojo-select" onchange="saveHomeDojo()">
+      <option value="">選択してください</option>
+    </select>
+    <ul class="setting-list" id="dojo-list"></ul>
+  </div>
+
+  <!-- 竹刀マスター（仮） -->
+  <div class="card">
+    <div class="card-title">⚔️ 竹刀マスター（shinailog連携予定）</div>
+    <div class="row" style="align-items:flex-end;">
+      <div>
+        <label>竹刀ID / 名称</label>
+        <input type="text" id="shinai-name-input" placeholder="例：竹刀A">
+      </div>
+      <div style="flex:0;">
+        <button class="btn-submit" style="padding:9px 16px;margin-top:0;font-size:0.82rem;" onclick="addShinai()">追加</button>
+      </div>
+    </div>
+    <ul class="setting-list" id="shinai-list"></ul>
+  </div>
+
+  <!-- データ -->
+  <div class="card">
+    <div class="card-title">🗄️ データ管理</div>
+    <div class="setting-row">
+      <span>記録件数</span>
+      <span id="record-count">0件</span>
+    </div>
+    <div class="setting-row">
+      <span>データをエクスポート（JSON）</span>
+      <button class="btn-del" onclick="exportData()">出力</button>
+    </div>
+    <div class="setting-row">
+      <span style="color:var(--accent);">全データを削除</span>
+      <button class="btn-del" style="color:var(--accent);border-color:var(--accent);" onclick="clearData()">削除</button>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<!-- ─── DETAIL MODAL ─── -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" id="modal-content"></div>
+</div>
+
+<!-- ─── CONFIRM DIALOG ─── -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-dialog">
+    <div class="confirm-msg" id="confirm-msg"></div>
+    <div class="confirm-btns">
+      <button class="confirm-cancel" id="confirm-cancel">キャンセル</button>
+      <button class="confirm-ok" id="confirm-ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── STATE ───
+let db = {
+  logs: [],
+  dojos: [],
+  homeDojo: '',
+  shinais: []
+};
+
+// ─── INIT ───
+function init() {
+  const saved = localStorage.getItem('keikolog_db');
+  if (saved) db = JSON.parse(saved);
+  renderAll();
+  // Set today's date/time
+  const now = new Date();
+  document.getElementById('f-date').value = now.toISOString().slice(0,10);
+  document.getElementById('f-time').value = now.toTimeString().slice(0,5);
+}
+
+function save() {
+  localStorage.setItem('keikolog_db', JSON.stringify(db));
+}
+
+function renderAll() {
+  renderDojoSelects();
+  renderShinaiSelects();
+  renderLogList();
+  renderDojoList();
+  renderShinaiList();
+  document.getElementById('record-count').textContent = db.logs.length + '件';
+}
+
+// ─── TABS ───
+function switchTab(tab, force) {
+  // 編集中に「記録する」タブを押してリセットしようとした場合も確認
+  if (editingId && !force) {
+    showConfirm('編集内容が破棄されます。\nよろしいですか？', () => {
+      editingId = null;
+      doSwitchTab(tab);
+    });
+    return;
+  }
+  doSwitchTab(tab);
+}
+
+function doSwitchTab(tab) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('view-' + tab).classList.add('active');
+  document.querySelectorAll('.tab')[['list','new','settings'].indexOf(tab)].classList.add('active');
+  if (tab === 'new') resetForm();
+  if (tab === 'settings') renderAll();
+}
+
+// ─── CONFIRM DIALOG ───
+function showConfirm(msg, onOk) {
+  const overlay = document.getElementById('confirm-overlay');
+  document.getElementById('confirm-msg').textContent = msg;
+  overlay.classList.add('open');
+  document.getElementById('confirm-ok').onclick = () => {
+    overlay.classList.remove('open');
+    onOk();
+  };
+  document.getElementById('confirm-cancel').onclick = () => {
+    overlay.classList.remove('open');
+  };
+}
+
+// ─── DOJO ───
+function addDojo() {
+  const name = document.getElementById('dojo-name-input').value.trim();
+  if (!name) return;
+  if (db.dojos.includes(name)) { showToast('すでに登録済みです'); return; }
+  db.dojos.push(name);
+  document.getElementById('dojo-name-input').value = '';
+  save();
+  renderAll();
+  showToast('道場を追加しました');
+}
+
+function deleteDojo(name) {
+  db.dojos = db.dojos.filter(d => d !== name);
+  if (db.homeDojo === name) db.homeDojo = '';
+  save();
+  renderAll();
+}
+
+function saveHomeDojo() {
+  db.homeDojo = document.getElementById('home-dojo-select').value;
+  save();
+}
+
+function renderDojoSelects() {
+  const place = document.getElementById('f-place');
+  const home = document.getElementById('home-dojo-select');
+  const cur = place.value;
+  place.innerHTML = '<option value="">道場を選択</option>';
+  home.innerHTML = '<option value="">選択してください</option>';
+  db.dojos.forEach(d => {
+    place.innerHTML += `<option value="${d}"${cur===d?' selected':''}>${d}</option>`;
+    home.innerHTML += `<option value="${d}"${db.homeDojo===d?' selected':''}>${d}</option>`;
+  });
+  checkHome();
+}
+
+function renderDojoList() {
+  const ul = document.getElementById('dojo-list');
+  if (!db.dojos.length) { ul.innerHTML = '<li style="font-size:0.8rem;color:var(--ink-light);padding:8px 0;">道場が登録されていません</li>'; return; }
+  ul.innerHTML = db.dojos.map(d =>
+    `<li class="setting-list-item"><span>${d}${db.homeDojo===d?' 🏠':''}</span><button class="btn-del" onclick="deleteDojo('${d}')">削除</button></li>`
+  ).join('');
+}
+
+function checkHome() {
+  const place = document.getElementById('f-place').value;
+  const badge = document.getElementById('home-badge');
+  if (!place) { badge.innerHTML = ''; return; }
+  const isHome = place === db.homeDojo;
+  badge.innerHTML = `<span style="font-size:0.72rem;color:${isHome?'#2d6a2d':'var(--accent)'};margin-bottom:8px;display:block;">${isHome?'🏠 ホーム道場':'🏃 出稽古'}</span>`;
+}
+
+// ─── SHINAI ───
+function addShinai() {
+  const name = document.getElementById('shinai-name-input').value.trim();
+  if (!name) return;
+  const id = 'shinai_' + Date.now();
+  db.shinais.push({ id, name });
+  document.getElementById('shinai-name-input').value = '';
+  save();
+  renderAll();
+  showToast('竹刀を追加しました');
+}
+
+function deleteShinai(id) {
+  db.shinais = db.shinais.filter(s => s.id !== id);
+  save();
+  renderAll();
+}
+
+function renderShinaiSelects() {
+  const sel = document.getElementById('f-shinai');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">竹刀を選択</option>';
+  db.shinais.forEach(s => {
+    sel.innerHTML += `<option value="${s.id}"${cur===s.id?' selected':''}>${s.name}</option>`;
+  });
+  // Also update session overrides
+  document.querySelectorAll('.session-shinai').forEach(el => {
+    const cur2 = el.value;
+    el.innerHTML = '<option value="">（デフォルト）</option>';
+    db.shinais.forEach(s => {
+      el.innerHTML += `<option value="${s.id}"${cur2===s.id?' selected':''}>${s.name}</option>`;
+    });
+  });
+}
+
+function renderShinaiList() {
+  const ul = document.getElementById('shinai-list');
+  if (!db.shinais.length) { ul.innerHTML = '<li style="font-size:0.8rem;color:var(--ink-light);padding:8px 0;">竹刀が登録されていません</li>'; return; }
+  ul.innerHTML = db.shinais.map(s =>
+    `<li class="setting-list-item"><span>${s.name} <span style="font-size:0.68rem;color:var(--ink-light);">${s.id}</span></span><button class="btn-del" onclick="deleteShinai('${s.id}')">削除</button></li>`
+  ).join('');
+}
+
+// ─── SESSIONS ───
+let sessionCount = 0;
+
+function getJigeikоNumber() {
+  return document.querySelectorAll('#sessions-container .session-block[data-type="jigeiko"]').length + 1;
+}
+
+function makeShinaiSel(defaultLabel) {
+  const defaultShinaiId = document.getElementById('f-shinai').value;
+  const defaultShinaiName = defaultShinaiId
+    ? (db.shinais.find(s => s.id === defaultShinaiId)?.name || defaultShinaiId)
+    : '未設定';
+  const shinaiOptions = db.shinais.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  return `<label>竹刀（上書き）</label><select class="session-shinai"><option value="">${defaultShinaiName}</option>${shinaiOptions}</select>`;
+}
+
+function addSession(type) {
+  sessionCount++;
+  const id = 'sess_' + sessionCount;
+  const container = document.getElementById('sessions-container');
+  let html = '';
+
+  const shinaiSel = makeShinaiSel();
+
+  if (type === 'kihon') {
+    html = `
+    <div class="session-block" id="${id}" data-type="kihon">
+      <div class="session-block-header"><span>基本稽古</span><button class="btn-remove" onclick="removeSession('${id}')">削除</button></div>
+      ${shinaiSel}
+      <label>稽古相手（複数可）</label>
+      <div class="partner-wrap">
+        <div class="partner-tags" id="pt-${id}"></div>
+        <div class="suggest-wrap">
+          <input type="text" class="partner-input" placeholder="名前を入力" oninput="showSuggest(this,'${id}')" onkeydown="partnerKeydown(event,this,'${id}')">
+          <div class="suggest-list" id="sg-${id}"></div>
+        </div>
+      </div>
+      <label>稽古メニュー <span style="color:var(--accent);font-size:0.7rem;">※最低1つ選択</span></label>
+      <div class="check-group" id="menu-${id}">
+        ${['切り返し','胴の切り返し','面打ち','小手打ち','突き','面への応じ技','小手への応じ技','面・小手への応じ技'].map(m =>
+          `<label class="check-item"><input type="checkbox" value="${m}"><span>${m}</span></label>`
+        ).join('')}
+      </div>
+      <label>その他メニュー</label>
+      <input type="text" placeholder="自由入力">
+      <label>感想</label>
+      <textarea placeholder="稽古の感想"></textarea>
+      <label>フィードバック</label>
+      <textarea placeholder="相手からのフィードバック"></textarea>
+    </div>`;
+  } else if (type === 'jigeiko') {
+    const num = getJigeikоNumber();
+    html = `
+    <div class="session-block" id="${id}" data-type="jigeiko">
+      <div class="session-block-header"><span>地稽古 #${num}</span><button class="btn-remove" onclick="removeSession('${id}');renumberJigeiko()">削除</button></div>
+      ${shinaiSel}
+      <label>稽古相手</label>
+      <div class="partner-wrap">
+        <div class="partner-tags" id="pt-${id}"></div>
+        <div class="suggest-wrap">
+          <input type="text" class="partner-input" placeholder="名前を入力" oninput="showSuggest(this,'${id}')" onkeydown="partnerKeydown(event,this,'${id}')">
+          <div class="suggest-list" id="sg-${id}"></div>
+        </div>
+      </div>
+      <label>感想</label>
+      <textarea placeholder="稽古の感想"></textarea>
+      <label>フィードバック</label>
+      <textarea placeholder="相手からのフィードバック"></textarea>
+    </div>`;
+  } else if (type === 'kata') {
+    html = `
+    <div class="session-block" id="${id}" data-type="kata">
+      <div class="session-block-header"><span>形稽古</span><button class="btn-remove" onclick="removeSession('${id}')">削除</button></div>
+      <label>形種別</label>
+      <div class="check-group">
+        ${['溝口派','五行','刃引','五点','日本剣道形'].map(m =>
+          `<label class="check-item"><input type="checkbox" value="${m}"><span>${m}</span></label>`
+        ).join('')}
+      </div>
+      <label>その他</label>
+      <input type="text" placeholder="自由入力">
+      <label>フィードバック</label>
+      <textarea placeholder="フィードバック"></textarea>
+    </div>`;
+  } else if (type === 'suburi') {
+    html = `
+    <div class="session-block" id="${id}" data-type="suburi">
+      <div class="session-block-header"><span>素振り稽古</span><button class="btn-remove" onclick="removeSession('${id}')">削除</button></div>
+      <label>素振りメニュー（種別 ＋ 本数）</label>
+      <div id="suburi-rows-${id}"></div>
+      <button class="btn-add" onclick="addSuburiRow('${id}')">＋ 種別を追加</button>
+      <div style="margin-top:6px;">
+        <button class="btn-add" onclick="copyLastSuburi('${id}')">📋 前回の素振り稽古をコピー</button>
+      </div>
+    </div>`;
+  }
+
+  container.insertAdjacentHTML('beforeend', html);
+  if (type === 'suburi') addSuburiRow(id);
+
+  // 追加したブロックにスクロール
+  setTimeout(() => {
+    const block = document.getElementById(id);
+    if (block) block.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 50);
+}
+
+function removeSession(id) {
+  document.getElementById(id).remove();
+}
+
+function renumberJigeiko() {
+  document.querySelectorAll('#sessions-container .session-block[data-type="jigeiko"]').forEach((block, i) => {
+    const header = block.querySelector('.session-block-header span');
+    if (header) header.textContent = `地稽古 #${i + 1}`;
+  });
+}
+
+// ─── SUBURI ROWS ───
+let suburiRowCount = 0;
+function addSuburiRow(sessId) {
+  suburiRowCount++;
+  const rid = 'sr_' + suburiRowCount;
+  const allSuburiNames = getAllSuburiNames();
+  const container = document.getElementById('suburi-rows-' + sessId);
+  container.insertAdjacentHTML('beforeend', `
+    <div class="suburi-row" id="${rid}">
+      <div class="suggest-wrap" style="flex:1;">
+        <input type="text" placeholder="素振り種別" oninput="showSuburiSuggest(this)" style="margin-bottom:0;">
+        <div class="suggest-list" id="ssg-${rid}"></div>
+      </div>
+      <input type="number" placeholder="本数" min="1" style="width:80px;margin-bottom:0;">
+      <button class="btn-remove" style="margin-top:0;" onclick="document.getElementById('${rid}').remove()">×</button>
+    </div>
+  `);
+}
+
+function getAllSuburiNames() {
+  const names = new Set();
+  db.logs.forEach(log => {
+    (log.suburi || []).forEach(row => { if (row.name) names.add(row.name); });
+  });
+  return [...names];
+}
+
+function showSuburiSuggest(input) {
+  const rid = input.closest('.suburi-row').id;
+  const val = input.value.trim();
+  const list = document.getElementById('ssg-' + rid);
+  const all = getAllSuburiNames();
+  const matches = val ? all.filter(n => n.includes(val)) : all;
+  if (!matches.length) { list.classList.remove('open'); return; }
+  list.innerHTML = matches.map(n => `<div class="suggest-item" onmousedown="input.value='${n}';list.classList.remove('open')">${n}</div>`).join('');
+  list.classList.add('open');
+  input.onblur = () => setTimeout(() => list.classList.remove('open'), 150);
+}
+
+function copyLastSuburi(sessId) {
+  const lastSuburiLog = [...db.logs].reverse().find(l => l.suburi && l.suburi.length);
+  if (!lastSuburiLog) { showToast('過去の素振り稽古が見つかりません'); return; }
+  const container = document.getElementById('suburi-rows-' + sessId);
+  container.innerHTML = '';
+  lastSuburiLog.suburi.forEach(row => {
+    suburiRowCount++;
+    const rid = 'sr_' + suburiRowCount;
+    container.insertAdjacentHTML('beforeend', `
+      <div class="suburi-row" id="${rid}">
+        <div class="suggest-wrap" style="flex:1;">
+          <input type="text" value="${row.name}" placeholder="素振り種別" oninput="showSuburiSuggest(this)" style="margin-bottom:0;">
+          <div class="suggest-list" id="ssg-${rid}"></div>
+        </div>
+        <input type="number" value="${row.count}" placeholder="本数" min="1" style="width:80px;margin-bottom:0;">
+        <button class="btn-remove" style="margin-top:0;" onclick="document.getElementById('${rid}').remove()">×</button>
+      </div>
+    `);
+  });
+  showToast('前回の内容をコピーしました');
+}
+
+// ─── PARTNER SUGGEST ───
+function getAllPartners() {
+  const names = new Set();
+  db.logs.forEach(log => {
+    const collect = (sessions) => sessions && sessions.forEach(s => (s.partners||[]).forEach(p => names.add(p)));
+    if (log.kihon) (log.kihon.partners||[]).forEach(p => names.add(p));
+    collect(log.jigeiko);
+  });
+  return [...names];
+}
+
+function showSuggest(input, sessId) {
+  const val = input.value.trim();
+  const list = document.getElementById('sg-' + sessId);
+  const all = getAllPartners();
+  const matches = val ? all.filter(n => n.includes(val)) : all;
+  if (!matches.length) { list.classList.remove('open'); return; }
+  list.innerHTML = matches.map(n =>
+    `<div class="suggest-item" onmousedown="addPartnerTag('${n}','${sessId}');document.querySelector('#${sessId} .partner-input').value=''">${n}</div>`
+  ).join('');
+  list.classList.add('open');
+  input.onblur = () => setTimeout(() => list.classList.remove('open'), 150);
+}
+
+function partnerKeydown(e, input, sessId) {
+  if (e.key === 'Enter' && input.value.trim()) {
+    e.preventDefault();
+    addPartnerTag(input.value.trim(), sessId);
+    input.value = '';
+    document.getElementById('sg-' + sessId).classList.remove('open');
+  }
+}
+
+function addPartnerTag(name, sessId) {
+  const container = document.getElementById('pt-' + sessId);
+  // avoid duplicates
+  const existing = [...container.querySelectorAll('.partner-tag')].map(t => t.dataset.name);
+  if (existing.includes(name)) return;
+  const tag = document.createElement('div');
+  tag.className = 'partner-tag';
+  tag.dataset.name = name;
+  tag.innerHTML = `${name}<button onclick="this.parentElement.remove()">×</button>`;
+  container.appendChild(tag);
+}
+
+// ─── SAVE ───
+let editingId = null;
+
+function saveEntry() {
+  const date = document.getElementById('f-date').value;
+  const time = document.getElementById('f-time').value;
+  const place = document.getElementById('f-place').value;
+  const shinaiId = document.getElementById('f-shinai').value;
+
+  if (!date || !place) { showToast('稽古日と場所を入力してください'); return; }
+
+  const isHome = place === db.homeDojo;
+  const entry = {
+    id: editingId || 'keiko_' + Date.now(),
+    date, time, place, isHome, shinaiId,
+    kihon: null, jigeiko: [], kata: null, suburi: []
+  };
+
+  let valid = true;
+  document.querySelectorAll('#sessions-container .session-block').forEach(block => {
+    if (!valid) return;
+    const type = block.dataset.type;
+    const shinaiOverride = block.querySelector('.session-shinai')?.value || '';
+
+    if (type === 'kihon') {
+      const partners = [...block.querySelectorAll('.partner-tags .partner-tag')].map(t => t.dataset.name);
+      const menu = [...block.querySelectorAll('input[type="checkbox"]:checked')].map(c => c.value);
+      const menuOtherInput = block.querySelectorAll('input[type="text"]');
+      const menuOther = menuOtherInput[menuOtherInput.length-1]?.value || '';
+      if (!menu.length && !menuOther.trim()) {
+        showToast('基本稽古：メニューを最低1つ選択してください');
+        valid = false;
+        return;
+      }
+      const textareas = block.querySelectorAll('textarea');
+      entry.kihon = {
+        shinaiId: shinaiOverride || shinaiId,
+        partners,
+        menu,
+        menuOther,
+        impression: textareas[0]?.value || '',
+        feedback: textareas[1]?.value || ''
+      };
+    } else if (type === 'jigeiko') {
+      const partners = [...block.querySelectorAll('.partner-tags .partner-tag')].map(t => t.dataset.name);
+      if (!partners.length) {
+        showToast('地稽古：稽古相手を入力してください');
+        valid = false;
+        return;
+      }
+      const textareas = block.querySelectorAll('textarea');
+      entry.jigeiko.push({
+        shinaiId: shinaiOverride || shinaiId,
+        partners,
+        impression: textareas[0]?.value || '',
+        feedback: textareas[1]?.value || ''
+      });
+    } else if (type === 'kata') {
+      const types = [...block.querySelectorAll('input[type="checkbox"]:checked')].map(c => c.value);
+      const inputs = block.querySelectorAll('input[type="text"]');
+      const textareas = block.querySelectorAll('textarea');
+      const typeOther = inputs[0]?.value || '';
+      if (!types.length && !typeOther.trim()) {
+        showToast('形稽古：形種別を最低1つ選択してください');
+        valid = false;
+        return;
+      }
+      entry.kata = {
+        types,
+        typeOther,
+        feedback: textareas[0]?.value || ''
+      };
+    } else if (type === 'suburi') {
+      block.querySelectorAll('.suburi-row').forEach(row => {
+        const name = row.querySelector('input[type="text"]')?.value?.trim() || '';
+        const count = parseInt(row.querySelector('input[type="number"]')?.value) || 0;
+        if (name) entry.suburi.push({ name, count, shinaiId: shinaiOverride || shinaiId });
+      });
+    }
+  });
+
+  if (!valid) return;
+
+  if (editingId) {
+    const idx = db.logs.findIndex(l => l.id === editingId);
+    if (idx !== -1) db.logs[idx] = entry;
+    editingId = null;
+    document.querySelector('.btn-submit').textContent = '稽古を記録する';
+    document.getElementById('new-title').textContent = '📅 基本情報';
+    save();
+    renderLogList();
+    showToast('稽古を更新しました');
+  } else {
+    db.logs.unshift(entry);
+    save();
+    renderLogList();
+    showToast('稽古を記録しました');
+  }
+  switchTab('list');
+}
+
+// ─── EDIT ───
+function editEntry(id) {
+  const log = db.logs.find(l => l.id === id);
+  if (!log) return;
+  closeModal();
+
+  // editingIdをswitchTab(→resetForm)より先に設定すると消えるため、
+  // resetForm後に再設定する
+  switchTab('new', true);
+  editingId = id;
+
+  // タイトル変更
+  setTimeout(() => {
+    const titleEl = document.getElementById('new-title');
+    if (titleEl) titleEl.textContent = '✏️ 稽古を編集する';
+    document.querySelector('.btn-submit').textContent = '稽古を更新する';
+
+    // 基本情報
+    document.getElementById('f-date').value = log.date || '';
+    document.getElementById('f-time').value = log.time || '';
+    document.getElementById('f-place').value = log.place || '';
+    document.getElementById('f-shinai').value = log.shinaiId || '';
+    checkHome();
+
+    // セッションを復元
+    // 各セッションの竹刀セレクトのデフォルト表示を更新
+    document.querySelectorAll('.session-shinai').forEach(sel => {
+      const defaultShinaiId = log.shinaiId;
+      const defaultShinaiName = defaultShinaiId
+        ? (db.shinais.find(s => s.id === defaultShinaiId)?.name || defaultShinaiId)
+        : '未設定';
+      sel.options[0].text = defaultShinaiName;
+    });
+
+    if (log.kihon) {
+      addSession('kihon');
+      const block = document.querySelector('.session-block[data-type="kihon"]');
+      if (block) {
+        const sid = block.id;
+        // 竹刀
+        block.querySelector('.session-shinai').value = log.kihon.shinaiId || '';
+        // 稽古相手
+        (log.kihon.partners || []).forEach(p => addPartnerTag(p, sid));
+        // メニューチェック
+        block.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+          cb.checked = log.kihon.menu.includes(cb.value);
+        });
+        // その他メニュー・感想・フィードバック
+        const inputs = block.querySelectorAll('input[type="text"]');
+        const textareas = block.querySelectorAll('textarea');
+        inputs[inputs.length-1].value = log.kihon.menuOther || '';
+        if (textareas[0]) textareas[0].value = log.kihon.impression || '';
+        if (textareas[1]) textareas[1].value = log.kihon.feedback || '';
+      }
+    }
+
+    (log.jigeiko || []).forEach(j => {
+      addSession('jigeiko');
+      const blocks = document.querySelectorAll('.session-block[data-type="jigeiko"]');
+      const block = blocks[blocks.length - 1];
+      if (block) {
+        const sid = block.id;
+        block.querySelector('.session-shinai').value = j.shinaiId || '';
+        (j.partners || []).forEach(p => addPartnerTag(p, sid));
+        const textareas = block.querySelectorAll('textarea');
+        if (textareas[0]) textareas[0].value = j.impression || '';
+        if (textareas[1]) textareas[1].value = j.feedback || '';
+      }
+    });
+
+    if (log.kata) {
+      addSession('kata');
+      const block = document.querySelector('.session-block[data-type="kata"]');
+      if (block) {
+        block.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+          cb.checked = log.kata.types.includes(cb.value);
+        });
+        const inputs = block.querySelectorAll('input[type="text"]');
+        const textareas = block.querySelectorAll('textarea');
+        if (inputs[0]) inputs[0].value = log.kata.typeOther || '';
+        if (textareas[0]) textareas[0].value = log.kata.feedback || '';
+      }
+    }
+
+    if (log.suburi && log.suburi.length) {
+      addSession('suburi');
+      const block = document.querySelector('.session-block[data-type="suburi"]');
+      if (block) {
+        const sid = block.id;
+        block.querySelector('.session-shinai').value = log.suburi[0]?.shinaiId || '';
+        // 自動追加された1行目を削除してから復元
+        document.getElementById('suburi-rows-' + sid).innerHTML = '';
+        log.suburi.forEach(row => {
+          suburiRowCount++;
+          const rid = 'sr_' + suburiRowCount;
+          document.getElementById('suburi-rows-' + sid).insertAdjacentHTML('beforeend', `
+            <div class="suburi-row" id="${rid}">
+              <div class="suggest-wrap" style="flex:1;">
+                <input type="text" value="${row.name}" placeholder="素振り種別" oninput="showSuburiSuggest(this)" style="margin-bottom:0;">
+                <div class="suggest-list" id="ssg-${rid}"></div>
+              </div>
+              <input type="number" value="${row.count}" placeholder="本数" min="1" style="width:80px;margin-bottom:0;">
+              <button class="btn-remove" style="margin-top:0;" onclick="document.getElementById('${rid}').remove()">×</button>
+            </div>
+          `);
+        });
+      }
+    }
+  }, 50);
+}
+
+function resetForm() {
+  document.getElementById('sessions-container').innerHTML = '';
+  sessionCount = 0;
+  editingId = null;
+  const now = new Date();
+  document.getElementById('f-date').value = now.toISOString().slice(0,10);
+  document.getElementById('f-time').value = now.toTimeString().slice(0,5);
+  document.getElementById('f-place').value = '';
+  document.getElementById('f-shinai').value = '';
+  document.getElementById('home-badge').innerHTML = '';
+  document.getElementById('new-title').textContent = '📅 基本情報';
+  const submitBtn = document.querySelector('.btn-submit');
+  if (submitBtn) submitBtn.textContent = '稽古を記録する';
+}
+
+// ─── LIST ───
+function renderLogList() {
+  const container = document.getElementById('log-list');
+  if (!db.logs.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">⛩️</div><p>稽古の記録がありません<br>「記録する」から追加してください</p></div>`;
+    return;
+  }
+  container.innerHTML = db.logs.map(log => {
+    const types = [];
+    if (log.kihon) types.push('基本稽古');
+    if (log.jigeiko?.length) types.push(`地稽古×${log.jigeiko.length}`);
+    if (log.kata) types.push('形稽古');
+    if (log.suburi?.length) types.push('素振り');
+    return `
+    <div class="log-item" onclick="showDetail('${log.id}')">
+      <div class="log-date">${log.date} ${log.time ? log.time : ''}</div>
+      <div class="log-place">${log.place || '場所未設定'}</div>
+      <div class="log-tags">
+        <span class="tag ${log.isHome ? 'home' : 'away'}">${log.isHome ? '🏠 ホーム' : '🏃 出稽古'}</span>
+        ${types.map(t => `<span class="tag">${t}</span>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── DETAIL ───
+function showDetail(id) {
+  const log = db.logs.find(l => l.id === id);
+  if (!log) return;
+
+  const shinaiName = (sid) => {
+    if (!sid) return 'ー';
+    const s = db.shinais.find(s => s.id === sid);
+    return s ? s.name : sid;
+  };
+
+  let html = `
+  <div class="modal-header">
+    <div class="modal-title">稽古詳細</div>
+    <button class="btn-close" onclick="closeModal()">×</button>
+  </div>
+  <div class="d-label">日時</div>
+  <div class="d-value">${log.date} ${log.time}</div>
+  <div class="d-label">場所</div>
+  <div class="d-value">${log.place} <span style="font-size:0.72rem;color:${log.isHome?'#2d6a2d':'var(--accent)'};">${log.isHome?'🏠ホーム':'🏃出稽古'}</span></div>
+  <div class="d-label">使用竹刀（デフォルト）</div>
+  <div class="d-value">${shinaiName(log.shinaiId)}</div>`;
+
+  if (log.kihon) {
+    html += `<div class="d-section">
+      <div class="d-section-title">基本稽古</div>
+      <div class="d-label">竹刀</div><div class="d-value">${shinaiName(log.kihon.shinaiId)}</div>
+      <div class="d-label">稽古相手</div><div class="d-value">${log.kihon.partners.join(', ') || 'ー'}</div>
+      <div class="d-label">メニュー</div><div class="d-value">${[...log.kihon.menu, log.kihon.menuOther].filter(Boolean).join('・') || 'ー'}</div>
+      <div class="d-label">感想</div><div class="d-value">${log.kihon.impression || 'ー'}</div>
+      <div class="d-label">フィードバック</div><div class="d-value">${log.kihon.feedback || 'ー'}</div>
+    </div>`;
+  }
+
+  (log.jigeiko || []).forEach((j, i) => {
+    html += `<div class="d-section">
+      <div class="d-section-title">地稽古 ${i+1}</div>
+      <div class="d-label">竹刀</div><div class="d-value">${shinaiName(j.shinaiId)}</div>
+      <div class="d-label">稽古相手</div><div class="d-value">${(j.partners||[]).join(', ') || 'ー'}</div>
+      <div class="d-label">感想</div><div class="d-value">${j.impression || 'ー'}</div>
+      <div class="d-label">フィードバック</div><div class="d-value">${j.feedback || 'ー'}</div>
+    </div>`;
+  });
+
+  if (log.kata) {
+    html += `<div class="d-section">
+      <div class="d-section-title">形稽古</div>
+      <div class="d-label">形種別</div><div class="d-value">${[...log.kata.types, log.kata.typeOther].filter(Boolean).join('・') || 'ー'}</div>
+      <div class="d-label">フィードバック</div><div class="d-value">${log.kata.feedback || 'ー'}</div>
+    </div>`;
+  }
+
+  if (log.suburi?.length) {
+    html += `<div class="d-section">
+      <div class="d-section-title">素振り稽古</div>
+      ${log.suburi.map(s => `<div class="d-value">${s.name}：${s.count}本</div>`).join('')}
+    </div>`;
+  }
+
+  html += `
+    <button class="btn-submit" style="margin-top:12px;" onclick="editEntry('${log.id}')">この記録を編集する</button>
+    <button class="btn-remove" style="margin-top:8px;width:100%;padding:8px;" onclick="deleteLog('${log.id}')">この記録を削除</button>`;
+
+  document.getElementById('modal-content').innerHTML = html;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function deleteLog(id) {
+  if (!confirm('この稽古記録を削除しますか？')) return;
+  db.logs = db.logs.filter(l => l.id !== id);
+  save();
+  renderLogList();
+  closeModal();
+  showToast('記録を削除しました');
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modal-overlay')) {
+    document.getElementById('modal-overlay').classList.remove('open');
+  }
+}
+
+// ─── DATA ───
+function exportData() {
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'keikolog_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+}
+
+function clearData() {
+  if (!confirm('全データを削除しますか？この操作は取り消せません。')) return;
+  db.logs = [];
+  save();
+  renderAll();
+  showToast('データを削除しました');
+}
+
+// ─── TOAST ───
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+init();
+</script>
+</body>
+</html>
