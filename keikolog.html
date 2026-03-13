@@ -497,7 +497,7 @@ textarea { resize: vertical; min-height: 72px; }
 <body>
 
 <header>
-  <h1>稽古録</h1>
+  <h1>稽古日記</h1>
   <span>keikolog</span>
 </header>
 
@@ -539,6 +539,10 @@ textarea { resize: vertical; min-height: 72px; }
     <select id="f-shinai">
       <option value="">竹刀を選択</option>
     </select>
+    <label>🎯 稽古目標</label>
+    <textarea id="f-goal" placeholder="今日の稽古で意識すること"></textarea>
+    <label>📝 稽古の振り返り</label>
+    <textarea id="f-review" placeholder="稽古全体を通しての振り返り"></textarea>
   </div>
 
   <!-- 稽古種別 -->
@@ -637,7 +641,8 @@ let db = {
   logs: [],
   dojos: [],
   homeDojo: '',
-  shinais: []
+  shinais: [],
+  dailyNotes: {}
 };
 
 // ─── INIT ───
@@ -645,7 +650,6 @@ function init() {
   const saved = localStorage.getItem('keikolog_db');
   if (saved) db = JSON.parse(saved);
   renderAll();
-  // Set today's date/time
   const now = new Date();
   document.getElementById('f-date').value = now.toISOString().slice(0,10);
   document.getElementById('f-time').value = now.toTimeString().slice(0,5);
@@ -1035,6 +1039,8 @@ function saveEntry() {
   const entry = {
     id: editingId || 'keiko_' + Date.now(),
     date, time, place, isHome, shinaiId,
+    goal: document.getElementById('f-goal').value,
+    review: document.getElementById('f-review').value,
     kihon: null, jigeiko: [], kata: null, suburi: []
   };
 
@@ -1045,6 +1051,12 @@ function saveEntry() {
     const shinaiOverride = block.querySelector('.session-shinai')?.value || '';
 
     if (type === 'kihon') {
+      // 入力欄に文字が残っていたら自動でタグとして追加
+      const partnerInput = block.querySelector('.partner-input');
+      if (partnerInput && partnerInput.value.trim()) {
+        addPartnerTag(partnerInput.value.trim(), block.id);
+        partnerInput.value = '';
+      }
       const partners = [...block.querySelectorAll('.partner-tags .partner-tag')].map(t => t.dataset.name);
       const menu = [...block.querySelectorAll('input[type="checkbox"]:checked')].map(c => c.value);
       const menuOtherInput = block.querySelectorAll('input[type="text"]');
@@ -1064,6 +1076,12 @@ function saveEntry() {
         feedback: textareas[1]?.value || ''
       };
     } else if (type === 'jigeiko') {
+      // 入力欄に文字が残っていたら自動でタグとして追加
+      const partnerInput = block.querySelector('.partner-input');
+      if (partnerInput && partnerInput.value.trim()) {
+        addPartnerTag(partnerInput.value.trim(), block.id);
+        partnerInput.value = '';
+      }
       const partners = [...block.querySelectorAll('.partner-tags .partner-tag')].map(t => t.dataset.name);
       if (!partners.length) {
         showToast('地稽古：稽古相手を入力してください');
@@ -1143,6 +1161,8 @@ function editEntry(id) {
     document.getElementById('f-time').value = log.time || '';
     document.getElementById('f-place').value = log.place || '';
     document.getElementById('f-shinai').value = log.shinaiId || '';
+    document.getElementById('f-goal').value = log.goal || '';
+    document.getElementById('f-review').value = log.review || '';
     checkHome();
 
     // セッションを復元
@@ -1241,6 +1261,8 @@ function resetForm() {
   document.getElementById('f-time').value = now.toTimeString().slice(0,5);
   document.getElementById('f-place').value = '';
   document.getElementById('f-shinai').value = '';
+  document.getElementById('f-goal').value = '';
+  document.getElementById('f-review').value = '';
   document.getElementById('home-badge').innerHTML = '';
   document.getElementById('new-title').textContent = '📅 基本情報';
   const submitBtn = document.querySelector('.btn-submit');
@@ -1294,6 +1316,14 @@ function showDetail(id) {
   <div class="d-value">${log.place} <span style="font-size:0.72rem;color:${log.isHome?'#2d6a2d':'var(--accent)'};">${log.isHome?'🏠ホーム':'🏃出稽古'}</span></div>
   <div class="d-label">使用竹刀（デフォルト）</div>
   <div class="d-value">${shinaiName(log.shinaiId)}</div>`;
+
+  if (log.goal || log.review) {
+    html += `<div class="d-section">
+      <div class="d-section-title">目標・振り返り</div>
+      ${log.goal ? `<div class="d-label">🎯 稽古目標</div><div class="d-value">${log.goal}</div>` : ''}
+      ${log.review ? `<div class="d-label">📝 振り返り</div><div class="d-value">${log.review}</div>` : ''}
+    </div>`;
+  }
 
   if (log.kihon) {
     html += `<div class="d-section">
