@@ -710,8 +710,9 @@ textarea { resize: vertical; min-height: 72px; }
 <script>
 // ─── SUPABASE ───
 const SUPABASE_URL = 'https://hnkncnqktdftxuupvypp.supabase.co';
-const SUPABASE_KEY = 'ここにanon_keyを貼り付けてください';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhua25jbnFrdGRmdHh1dXB2eXBwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MjI3MTAsImV4cCI6MjA4OTI5ODcxMH0.QX75EilYZ2oj-IcUgxJniIrxhZHV3nhGI14fq-sS0F8';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ─── STATE ───
 let db = {
@@ -747,19 +748,19 @@ async function syncFromSupabase() {
     showToast('データを同期中…');
 
     // 稽古ログ
-    const { data: logs } = await supabase
+    const { data: logs } = await sb
       .from('keiko_logs')
       .select('*')
       .order('date', { ascending: false });
 
     // 道場
-    const { data: dojos } = await supabase
+    const { data: dojos } = await sb
       .from('dojos')
       .select('*')
       .order('id');
 
     // 竹刀
-    const { data: shinais } = await supabase
+    const { data: shinais } = await sb
       .from('shinais')
       .select('*')
       .order('created_at');
@@ -806,7 +807,7 @@ async function save() {
 }
 
 async function saveLogToSupabase(entry) {
-  const { error } = await supabase.from('keiko_logs').upsert({
+  const { error } = await sb.from('keiko_logs').upsert({
     id: entry.id,
     date: entry.date,
     time: entry.time || null,
@@ -826,16 +827,16 @@ async function saveLogToSupabase(entry) {
 
 async function saveDojosToSupabase() {
   // 全道場を一括upsert
-  await supabase.from('dojos').delete().neq('id', 0);
+  await sb.from('dojos').delete().neq('id', 0);
   if (db.dojos.length) {
-    await supabase.from('dojos').insert(
+    await sb.from('dojos').insert(
       db.dojos.map(name => ({ name, is_home: db.homeDojos.includes(name) }))
     );
   }
 }
 
 async function saveShinaiToSupabase(shinai) {
-  await supabase.from('shinais').upsert({ id: shinai.id, name: shinai.name });
+  await sb.from('shinais').upsert({ id: shinai.id, name: shinai.name });
 }
 
 function renderAll() {
@@ -965,7 +966,7 @@ async function addShinai() {
 async function deleteShinai(id) {
   db.shinais = db.shinais.filter(s => s.id !== id);
   saveLocal();
-  await supabase.from('shinais').delete().eq('id', id);
+  await sb.from('shinais').delete().eq('id', id);
   renderAll();
 }
 
@@ -1316,7 +1317,7 @@ function addPartnerTag(name, sessId) {
 // ─── SAVE ───
 let editingId = null;
 
-function saveEntry() {
+async function saveEntry() {
   const date = document.getElementById('f-date').value;
   const time = document.getElementById('f-time').value;
   const place = document.getElementById('f-place').value;
@@ -1642,7 +1643,7 @@ async function deleteLog(id) {
   if (!confirm('この稽古記録を削除しますか？')) return;
   db.logs = db.logs.filter(l => l.id !== id);
   saveLocal();
-  await supabase.from('keiko_logs').delete().eq('id', id);
+  await sb.from('keiko_logs').delete().eq('id', id);
   renderLogList();
   closeModal();
   showToast('記録を削除しました');
@@ -1667,7 +1668,7 @@ async function clearData() {
   if (!confirm('全データを削除しますか？この操作は取り消せません。')) return;
   db.logs = [];
   saveLocal();
-  await supabase.from('keiko_logs').delete().neq('id', '');
+  await sb.from('keiko_logs').delete().neq('id', '');
   renderAll();
   showToast('データを削除しました');
 }
@@ -1680,7 +1681,7 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2200);
 }
 
-init();
+(async () => { await init(); })();
 </script>
 </body>
 </html>
