@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>keikolog</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&family=Noto+Sans+JP:wght@300;400;500&display=swap');
 
@@ -707,6 +708,11 @@ textarea { resize: vertical; min-height: 72px; }
 <div class="toast" id="toast"></div>
 
 <script>
+// ─── SUPABASE ───
+const SUPABASE_URL = 'https://hnkncnqktdftxuupvypp.supabase.co';
+const SUPABASE_KEY = 'ここにanon_keyを貼り付けてください';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 // ─── STATE ───
 let db = {
   logs: [],
@@ -717,23 +723,119 @@ let db = {
 };
 
 // ─── INIT ───
-function init() {
+async function init() {
   const saved = localStorage.getItem('keikolog_db');
   if (saved) db = JSON.parse(saved);
-  // 旧データ移行：homeDojo文字列 → homeDojos配列
   if (!db.homeDojos) {
     db.homeDojos = db.homeDojo ? [db.homeDojo] : [];
     delete db.homeDojo;
   }
   if (!db.dailyNotes) db.dailyNotes = {};
+
+  // ローカル表示をまず出す
   renderAll();
   const now = new Date();
   document.getElementById('f-date').value = now.toISOString().slice(0,10);
   document.getElementById('f-time').value = now.toTimeString().slice(0,5);
+
+  // Supabaseから最新データを取得して同期
+  await syncFromSupabase();
 }
 
-function save() {
+async function syncFromSupabase() {
+  try {
+    showToast('データを同期中…');
+
+    // 稽古ログ
+    const { data: logs } = await supabase
+      .from('keiko_logs')
+      .select('*')
+      .order('date', { ascending: false });
+
+    // 道場
+    const { data: dojos } = await supabase
+      .from('dojos')
+      .select('*')
+      .order('id');
+
+    // 竹刀
+    const { data: shinais } = await supabase
+      .from('shinais')
+      .select('*')
+      .order('created_at');
+
+    if (logs) {
+      db.logs = logs.map(r => ({
+        id: r.id,
+        date: r.date,
+        time: r.time ? r.time.slice(0,5) : '',
+        place: r.place,
+        isHome: r.is_home,
+        shinaiId: r.shinai_id,
+        goal: r.goal,
+        review: r.review,
+        kihon: r.kihon,
+        jigeiko: r.jigeiko || [],
+        kata: r.kata,
+        suburi: r.suburi || []
+      }));
+    }
+    if (dojos) {
+      db.dojos = dojos.map(d => d.name);
+      db.homeDojos = dojos.filter(d => d.is_home).map(d => d.name);
+    }
+    if (shinais) {
+      db.shinais = shinais.map(s => ({ id: s.id, name: s.name }));
+    }
+
+    saveLocal();
+    renderAll();
+    showToast('同期完了');
+  } catch(e) {
+    showToast('オフラインモードで動作中');
+  }
+}
+
+// ─── SAVE ───
+function saveLocal() {
   localStorage.setItem('keikolog_db', JSON.stringify(db));
+}
+
+async function save() {
+  saveLocal();
+}
+
+async function saveLogToSupabase(entry) {
+  const { error } = await supabase.from('keiko_logs').upsert({
+    id: entry.id,
+    date: entry.date,
+    time: entry.time || null,
+    place: entry.place,
+    is_home: entry.isHome,
+    shinai_id: entry.shinaiId || null,
+    goal: entry.goal || null,
+    review: entry.review || null,
+    kihon: entry.kihon || null,
+    jigeiko: entry.jigeiko || [],
+    kata: entry.kata || null,
+    suburi: entry.suburi || []
+  });
+  if (error) { showToast('保存エラー：' + error.message); return false; }
+  return true;
+}
+
+async function saveDojosToSupabase() {
+  // 全道場を一括upsert
+  await supabase.from('dojos').delete().neq('id', 0);
+  if (db.dojos.length) {
+    await supabase.from('dojos').insert(
+      db.dojos.map(name => ({ name, is_home: db.homeDojos.includes(name) }))
+    );
+  }
+}
+
+async function saveShinaiToSupabase(shinai) {
+  await supabase.from('shinais').upsert({ id: shinai.id, name: shinai.name });
 }
 
 function renderAll() {
@@ -782,35 +884,36 @@ function showConfirm(msg, onOk) {
 }
 
 // ─── DOJO ───
-function addDojo() {
+async function addDojo() {
   const name = document.getElementById('dojo-name-input').value.trim();
   if (!name) return;
   if (db.dojos.includes(name)) { showToast('すでに登録済みです'); return; }
   db.dojos.push(name);
   document.getElementById('dojo-name-input').value = '';
-  save();
+  saveLocal();
+  await saveDojosToSupabase();
   renderAll();
   showToast('道場を追加しました');
 }
 
-function deleteDojo(name) {
+async function deleteDojo(name) {
   db.dojos = db.dojos.filter(d => d !== name);
   db.homeDojos = db.homeDojos.filter(d => d !== name);
-  save();
+  saveLocal();
+  await saveDojosToSupabase();
   renderAll();
 }
 
-function toggleHomeDojo(name) {
+async function toggleHomeDojo(name) {
   if (db.homeDojos.includes(name)) {
     db.homeDojos = db.homeDojos.filter(d => d !== name);
   } else {
     db.homeDojos.push(name);
   }
-  save();
+  saveLocal();
+  await saveDojosToSupabase();
   renderAll();
-}
-
-function renderDojoSelects() {
+} {
   const place = document.getElementById('f-place');
   const cur = place.value;
   place.innerHTML = '<option value="">道場を選択</option>';
@@ -820,7 +923,7 @@ function renderDojoSelects() {
   checkHome();
 }
 
-function renderDojoList() {
+function renderDojoSelects() {
   const ul = document.getElementById('dojo-list');
   if (!db.dojos.length) {
     ul.innerHTML = '<li style="font-size:0.8rem;color:var(--ink-light);padding:8px 0;">道場が登録されていません</li>';
@@ -847,20 +950,22 @@ function checkHome() {
 }
 
 // ─── SHINAI ───
-function addShinai() {
+async function addShinai() {
   const name = document.getElementById('shinai-name-input').value.trim();
   if (!name) return;
   const id = 'shinai_' + Date.now();
   db.shinais.push({ id, name });
   document.getElementById('shinai-name-input').value = '';
-  save();
+  saveLocal();
+  await saveShinaiToSupabase({ id, name });
   renderAll();
   showToast('竹刀を追加しました');
 }
 
-function deleteShinai(id) {
+async function deleteShinai(id) {
   db.shinais = db.shinais.filter(s => s.id !== id);
-  save();
+  saveLocal();
+  await supabase.from('shinais').delete().eq('id', id);
   renderAll();
 }
 
@@ -1288,12 +1393,14 @@ function saveEntry() {
     editingId = null;
     document.querySelector('.btn-submit').textContent = '稽古を記録する';
     document.getElementById('new-title').textContent = '📅 基本情報';
-    save();
+    saveLocal();
+    await saveLogToSupabase(entry);
     renderLogList();
     showToast('稽古を更新しました');
   } else {
     db.logs.unshift(entry);
-    save();
+    saveLocal();
+    await saveLogToSupabase(entry);
     renderLogList();
     showToast('稽古を記録しました');
   }
@@ -1531,10 +1638,11 @@ function showDetail(id) {
   document.getElementById('modal-overlay').classList.add('open');
 }
 
-function deleteLog(id) {
+async function deleteLog(id) {
   if (!confirm('この稽古記録を削除しますか？')) return;
   db.logs = db.logs.filter(l => l.id !== id);
-  save();
+  saveLocal();
+  await supabase.from('keiko_logs').delete().eq('id', id);
   renderLogList();
   closeModal();
   showToast('記録を削除しました');
@@ -1555,10 +1663,11 @@ function exportData() {
   a.click();
 }
 
-function clearData() {
+async function clearData() {
   if (!confirm('全データを削除しますか？この操作は取り消せません。')) return;
   db.logs = [];
-  save();
+  saveLocal();
+  await supabase.from('keiko_logs').delete().neq('id', '');
   renderAll();
   showToast('データを削除しました');
 }
