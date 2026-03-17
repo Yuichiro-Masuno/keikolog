@@ -914,7 +914,7 @@ async function toggleHomeDojo(name) {
   saveLocal();
   await saveDojosToSupabase();
   renderAll();
-} {
+function renderDojoSelects() {
   const place = document.getElementById('f-place');
   const cur = place.value;
   place.innerHTML = '<option value="">道場を選択</option>';
@@ -924,7 +924,7 @@ async function toggleHomeDojo(name) {
   checkHome();
 }
 
-function renderDojoSelects() {
+function renderDojoList() {
   const ul = document.getElementById('dojo-list');
   if (!db.dojos.length) {
     ul.innerHTML = '<li style="font-size:0.8rem;color:var(--ink-light);padding:8px 0;">道場が登録されていません</li>';
