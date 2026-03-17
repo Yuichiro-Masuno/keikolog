@@ -914,6 +914,8 @@ async function toggleHomeDojo(name) {
   saveLocal();
   await saveDojosToSupabase();
   renderAll();
+}
+
 function renderDojoSelects() {
   const place = document.getElementById('f-place');
   const cur = place.value;
