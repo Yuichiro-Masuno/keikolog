@@ -492,6 +492,67 @@ textarea { resize: vertical; min-height: 72px; }
 @media (max-width: 400px) {
   .check-group { grid-template-columns: 1fr; }
 }
+
+.session-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(26,26,46,0.6);
+  z-index: 160;
+  align-items: flex-end;
+  justify-content: center;
+}
+.session-modal-overlay.open { display: flex; }
+.session-modal {
+  background: var(--white);
+  width: 100%;
+  max-width: 640px;
+  border-radius: 16px 16px 0 0;
+  padding: 20px;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+.session-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.session-modal-title {
+  font-family: 'Noto Serif JP', serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* Suburi stats */
+.suburi-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 10px;
+  margin-bottom: 4px;
+}
+.suburi-stat {
+  background: var(--paper-dark);
+  border-radius: 6px;
+  padding: 6px 8px;
+  text-align: center;
+  border: 1px solid var(--border);
+}
+.suburi-stat-label {
+  font-size: 0.62rem;
+  color: var(--ink-light);
+  margin-bottom: 2px;
+}
+.suburi-stat-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink);
+  font-family: 'Noto Serif JP', serif;
+}
 </style>
 </head>
 <body>
@@ -549,10 +610,10 @@ textarea { resize: vertical; min-height: 72px; }
   <div class="card">
     <div class="card-title">🥋 稽古種別を追加</div>
     <div class="session-type-pills">
-      <div class="pill" onclick="addSession('kihon')">＋ 基本稽古</div>
-      <div class="pill" onclick="addSession('jigeiko')">＋ 地稽古</div>
-      <div class="pill" onclick="addSession('kata')">＋ 形稽古</div>
-      <div class="pill" onclick="addSession('suburi')">＋ 素振り稽古</div>
+      <div class="pill" onclick="openSessionModal('kihon')">＋ 基本稽古</div>
+      <div class="pill" onclick="openSessionModal('jigeiko')">＋ 地稽古</div>
+      <div class="pill" onclick="openSessionModal('kata')">＋ 形稽古</div>
+      <div class="pill" onclick="openSessionModal('suburi')">＋ 素振り稽古</div>
     </div>
     <div id="sessions-container"></div>
   </div>
@@ -575,10 +636,7 @@ textarea { resize: vertical; min-height: 72px; }
         <button class="btn-submit" style="padding:9px 16px;margin-top:0;font-size:0.82rem;" onclick="addDojo()">追加</button>
       </div>
     </div>
-    <label style="margin-top:4px;">ホーム道場</label>
-    <select id="home-dojo-select" onchange="saveHomeDojo()">
-      <option value="">選択してください</option>
-    </select>
+    <div style="font-size:0.72rem;color:var(--ink-light);margin-bottom:6px;">🏠 チェックした道場がホーム道場（複数可）</div>
     <ul class="setting-list" id="dojo-list"></ul>
   </div>
 
@@ -617,6 +675,18 @@ textarea { resize: vertical; min-height: 72px; }
 
 </main>
 
+<!-- ─── SESSION INPUT MODAL ─── -->
+<div class="session-modal-overlay" id="session-modal-overlay">
+  <div class="session-modal">
+    <div class="session-modal-header">
+      <div class="session-modal-title" id="session-modal-title"></div>
+      <button class="btn-close" onclick="closeSessionModal()">×</button>
+    </div>
+    <div id="session-modal-body"></div>
+    <button class="btn-submit" style="margin-top:12px;" onclick="saveSessionModal()">この稽古を追加</button>
+  </div>
+</div>
+
 <!-- ─── DETAIL MODAL ─── -->
 <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
   <div class="modal" id="modal-content"></div>
@@ -640,7 +710,7 @@ textarea { resize: vertical; min-height: 72px; }
 let db = {
   logs: [],
   dojos: [],
-  homeDojo: '',
+  homeDojos: [],
   shinais: [],
   dailyNotes: {}
 };
@@ -649,6 +719,12 @@ let db = {
 function init() {
   const saved = localStorage.getItem('keikolog_db');
   if (saved) db = JSON.parse(saved);
+  // 旧データ移行：homeDojo文字列 → homeDojos配列
+  if (!db.homeDojos) {
+    db.homeDojos = db.homeDojo ? [db.homeDojo] : [];
+    delete db.homeDojo;
+  }
+  if (!db.dailyNotes) db.dailyNotes = {};
   renderAll();
   const now = new Date();
   document.getElementById('f-date').value = now.toISOString().slice(0,10);
@@ -718,42 +794,54 @@ function addDojo() {
 
 function deleteDojo(name) {
   db.dojos = db.dojos.filter(d => d !== name);
-  if (db.homeDojo === name) db.homeDojo = '';
+  db.homeDojos = db.homeDojos.filter(d => d !== name);
   save();
   renderAll();
 }
 
-function saveHomeDojo() {
-  db.homeDojo = document.getElementById('home-dojo-select').value;
+function toggleHomeDojo(name) {
+  if (db.homeDojos.includes(name)) {
+    db.homeDojos = db.homeDojos.filter(d => d !== name);
+  } else {
+    db.homeDojos.push(name);
+  }
   save();
+  renderAll();
 }
 
 function renderDojoSelects() {
   const place = document.getElementById('f-place');
-  const home = document.getElementById('home-dojo-select');
   const cur = place.value;
   place.innerHTML = '<option value="">道場を選択</option>';
-  home.innerHTML = '<option value="">選択してください</option>';
   db.dojos.forEach(d => {
     place.innerHTML += `<option value="${d}"${cur===d?' selected':''}>${d}</option>`;
-    home.innerHTML += `<option value="${d}"${db.homeDojo===d?' selected':''}>${d}</option>`;
   });
   checkHome();
 }
 
 function renderDojoList() {
   const ul = document.getElementById('dojo-list');
-  if (!db.dojos.length) { ul.innerHTML = '<li style="font-size:0.8rem;color:var(--ink-light);padding:8px 0;">道場が登録されていません</li>'; return; }
-  ul.innerHTML = db.dojos.map(d =>
-    `<li class="setting-list-item"><span>${d}${db.homeDojo===d?' 🏠':''}</span><button class="btn-del" onclick="deleteDojo('${d}')">削除</button></li>`
-  ).join('');
+  if (!db.dojos.length) {
+    ul.innerHTML = '<li style="font-size:0.8rem;color:var(--ink-light);padding:8px 0;">道場が登録されていません</li>';
+    return;
+  }
+  ul.innerHTML = db.dojos.map(d => {
+    const isHome = db.homeDojos.includes(d);
+    return `<li class="setting-list-item">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;">
+        <input type="checkbox" ${isHome?'checked':''} onchange="toggleHomeDojo('${d}')" style="accent-color:var(--accent);">
+        <span>${d} ${isHome?'🏠':''}</span>
+      </label>
+      <button class="btn-del" onclick="deleteDojo('${d}')">削除</button>
+    </li>`;
+  }).join('');
 }
 
 function checkHome() {
   const place = document.getElementById('f-place').value;
   const badge = document.getElementById('home-badge');
   if (!place) { badge.innerHTML = ''; return; }
-  const isHome = place === db.homeDojo;
+  const isHome = db.homeDojos.includes(place);
   badge.innerHTML = `<span style="font-size:0.72rem;color:${isHome?'#2d6a2d':'var(--accent)'};margin-bottom:8px;display:block;">${isHome?'🏠 ホーム道場':'🏃 出稽古'}</span>`;
 }
 
@@ -802,6 +890,7 @@ function renderShinaiList() {
 
 // ─── SESSIONS ───
 let sessionCount = 0;
+let currentSessionType = null;
 
 function getJigeikоNumber() {
   return document.querySelectorAll('#sessions-container .session-block[data-type="jigeiko"]').length + 1;
@@ -816,18 +905,10 @@ function makeShinaiSel(defaultLabel) {
   return `<label>竹刀（上書き）</label><select class="session-shinai"><option value="">${defaultShinaiName}</option>${shinaiOptions}</select>`;
 }
 
-function addSession(type) {
-  sessionCount++;
-  const id = 'sess_' + sessionCount;
-  const container = document.getElementById('sessions-container');
-  let html = '';
-
+function buildSessionHTML(type, id) {
   const shinaiSel = makeShinaiSel();
-
   if (type === 'kihon') {
-    html = `
-    <div class="session-block" id="${id}" data-type="kihon">
-      <div class="session-block-header"><span>基本稽古</span><button class="btn-remove" onclick="removeSession('${id}')">削除</button></div>
+    return `
       ${shinaiSel}
       <label>稽古相手（複数可）</label>
       <div class="partner-wrap">
@@ -848,15 +929,12 @@ function addSession(type) {
       <label>感想</label>
       <textarea placeholder="稽古の感想"></textarea>
       <label>フィードバック</label>
-      <textarea placeholder="相手からのフィードバック"></textarea>
-    </div>`;
+      <textarea placeholder="相手からのフィードバック"></textarea>`;
   } else if (type === 'jigeiko') {
-    const num = getJigeikоNumber();
-    html = `
-    <div class="session-block" id="${id}" data-type="jigeiko">
-      <div class="session-block-header"><span>地稽古 #${num}</span><button class="btn-remove" onclick="removeSession('${id}');renumberJigeiko()">削除</button></div>
+    const num = document.querySelectorAll('#sessions-container .session-block[data-type="jigeiko"]').length + 1;
+    return `
       ${shinaiSel}
-      <label>稽古相手</label>
+      <label>稽古相手 <span style="color:var(--accent);font-size:0.7rem;">※必須</span></label>
       <div class="partner-wrap">
         <div class="partner-tags" id="pt-${id}"></div>
         <div class="suggest-wrap">
@@ -867,13 +945,10 @@ function addSession(type) {
       <label>感想</label>
       <textarea placeholder="稽古の感想"></textarea>
       <label>フィードバック</label>
-      <textarea placeholder="相手からのフィードバック"></textarea>
-    </div>`;
+      <textarea placeholder="相手からのフィードバック"></textarea>`;
   } else if (type === 'kata') {
-    html = `
-    <div class="session-block" id="${id}" data-type="kata">
-      <div class="session-block-header"><span>形稽古</span><button class="btn-remove" onclick="removeSession('${id}')">削除</button></div>
-      <label>形種別</label>
+    return `
+      <label>形種別 <span style="color:var(--accent);font-size:0.7rem;">※最低1つ選択</span></label>
       <div class="check-group">
         ${['溝口派','五行','刃引','五点','日本剣道形'].map(m =>
           `<label class="check-item"><input type="checkbox" value="${m}"><span>${m}</span></label>`
@@ -882,33 +957,114 @@ function addSession(type) {
       <label>その他</label>
       <input type="text" placeholder="自由入力">
       <label>フィードバック</label>
-      <textarea placeholder="フィードバック"></textarea>
-    </div>`;
+      <textarea placeholder="フィードバック"></textarea>`;
   } else if (type === 'suburi') {
-    html = `
-    <div class="session-block" id="${id}" data-type="suburi">
-      <div class="session-block-header"><span>素振り稽古</span><button class="btn-remove" onclick="removeSession('${id}')">削除</button></div>
+    return `
       <label>素振りメニュー（種別 ＋ 本数）</label>
       <div id="suburi-rows-${id}"></div>
       <button class="btn-add" onclick="addSuburiRow('${id}')">＋ 種別を追加</button>
       <div style="margin-top:6px;">
         <button class="btn-add" onclick="copyLastSuburi('${id}')">📋 前回の素振り稽古をコピー</button>
       </div>
-    </div>`;
+      <div class="suburi-stats" id="suburi-stats-${id}">
+        <div class="suburi-stat"><div class="suburi-stat-label">今回合計</div><div class="suburi-stat-value" id="stat-today-${id}">0本</div></div>
+        <div class="suburi-stat"><div class="suburi-stat-label">今月累計</div><div class="suburi-stat-value" id="stat-month-${id}">0本</div></div>
+        <div class="suburi-stat"><div class="suburi-stat-label">総累計</div><div class="suburi-stat-value" id="stat-total-${id}">0本</div></div>
+      </div>`;
+  }
+  return '';
+}
+
+// ─── SESSION MODAL ───
+let pendingSessionId = null;
+
+function openSessionModal(type) {
+  sessionCount++;
+  const id = 'sess_' + sessionCount;
+  pendingSessionId = id;
+  currentSessionType = type;
+
+  const labels = { kihon:'基本稽古', jigeiko:'地稽古', kata:'形稽古', suburi:'素振り稽古' };
+  document.getElementById('session-modal-title').textContent = labels[type];
+  document.getElementById('session-modal-body').innerHTML = `<div id="${id}" data-type="${type}">${buildSessionHTML(type, id)}</div>`;
+  document.getElementById('session-modal-overlay').classList.add('open');
+
+  if (type === 'suburi') {
+    addSuburiRow(id);
+    updateSuburiStats(id);
+  }
+}
+
+function saveSessionModal() {
+  const id = pendingSessionId;
+  const type = currentSessionType;
+  const tempBlock = document.getElementById(id);
+  if (!tempBlock) return;
+
+  const shinaiId = document.getElementById('f-shinai').value;
+  const shinaiOverride = tempBlock.querySelector('.session-shinai')?.value || '';
+
+  // バリデーション
+  if (type === 'kihon') {
+    const partnerInput = tempBlock.querySelector('.partner-input');
+    if (partnerInput?.value.trim()) { addPartnerTag(partnerInput.value.trim(), id); partnerInput.value = ''; }
+    const menu = [...tempBlock.querySelectorAll('input[type="checkbox"]:checked')].map(c => c.value);
+    const menuOtherInputs = tempBlock.querySelectorAll('input[type="text"]');
+    const menuOther = menuOtherInputs[menuOtherInputs.length-1]?.value || '';
+    if (!menu.length && !menuOther.trim()) { showToast('基本稽古：メニューを最低1つ選択してください'); return; }
+  }
+  if (type === 'jigeiko') {
+    const partnerInput = tempBlock.querySelector('.partner-input');
+    if (partnerInput?.value.trim()) { addPartnerTag(partnerInput.value.trim(), id); partnerInput.value = ''; }
+    const partners = [...tempBlock.querySelectorAll('.partner-tags .partner-tag')].map(t => t.dataset.name);
+    if (!partners.length) { showToast('地稽古：稽古相手を入力してください'); return; }
+  }
+  if (type === 'kata') {
+    const types = [...tempBlock.querySelectorAll('input[type="checkbox"]:checked')].map(c => c.value);
+    const inputs = tempBlock.querySelectorAll('input[type="text"]');
+    if (!types.length && !inputs[0]?.value.trim()) { showToast('形稽古：形種別を最低1つ選択してください'); return; }
   }
 
-  container.insertAdjacentHTML('beforeend', html);
-  if (type === 'suburi') addSuburiRow(id);
+  // セッションブロックをコンテナに移動
+  const container = document.getElementById('sessions-container');
+  const wrapper = document.createElement('div');
+  wrapper.className = 'session-block';
+  wrapper.id = id;
+  wrapper.dataset.type = type;
 
-  // 追加したブロックにスクロール
-  setTimeout(() => {
-    const block = document.getElementById(id);
-    if (block) block.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, 50);
+  const typeLabel = { kihon:'基本稽古', jigeiko:`地稽古 #${getJigeikоNumber()}`, kata:'形稽古', suburi:'素振り稽古' }[type];
+  wrapper.innerHTML = `<div class="session-block-header"><span>${typeLabel}</span><button class="btn-remove" onclick="removeSession('${id}')${type==='jigeiko'?';renumberJigeiko()':''}">削除</button></div>` + tempBlock.innerHTML;
+  container.appendChild(wrapper);
+
+  closeSessionModal();
+  showToast(`${typeLabel}を追加しました`);
+}
+
+function closeSessionModal() {
+  document.getElementById('session-modal-overlay').classList.remove('open');
+  pendingSessionId = null;
+  currentSessionType = null;
+}
+
+function addSession(type, id) {
+  // 編集時の復元用（内部呼び出し）
+  const container = document.getElementById('sessions-container');
+  sessionCount++;
+  const newId = id || 'sess_' + sessionCount;
+  const html = buildSessionHTML(type, newId);
+  const typeLabel = { kihon:'基本稽古', jigeiko:`地稽古 #${getJigeikоNumber()}`, kata:'形稽古', suburi:'素振り稽古' }[type];
+  const block = document.createElement('div');
+  block.className = 'session-block';
+  block.id = newId;
+  block.dataset.type = type;
+  block.innerHTML = `<div class="session-block-header"><span>${typeLabel}</span><button class="btn-remove" onclick="removeSession('${newId}')${type==='jigeiko'?';renumberJigeiko()':''}">削除</button></div>` + html;
+  container.appendChild(block);
+  if (type === 'suburi') addSuburiRow(newId);
+  return newId;
 }
 
 function removeSession(id) {
-  document.getElementById(id).remove();
+  document.getElementById(id)?.remove();
 }
 
 function renumberJigeiko() {
@@ -923,18 +1079,45 @@ let suburiRowCount = 0;
 function addSuburiRow(sessId) {
   suburiRowCount++;
   const rid = 'sr_' + suburiRowCount;
-  const allSuburiNames = getAllSuburiNames();
   const container = document.getElementById('suburi-rows-' + sessId);
+  if (!container) return;
   container.insertAdjacentHTML('beforeend', `
     <div class="suburi-row" id="${rid}">
       <div class="suggest-wrap" style="flex:1;">
         <input type="text" placeholder="素振り種別" oninput="showSuburiSuggest(this)" style="margin-bottom:0;">
         <div class="suggest-list" id="ssg-${rid}"></div>
       </div>
-      <input type="number" placeholder="本数" min="1" style="width:80px;margin-bottom:0;">
-      <button class="btn-remove" style="margin-top:0;" onclick="document.getElementById('${rid}').remove()">×</button>
+      <input type="number" placeholder="本数" min="1" style="width:80px;margin-bottom:0;" oninput="updateSuburiStats('${sessId}')">
+      <button class="btn-remove" style="margin-top:0;" onclick="document.getElementById('${rid}').remove();updateSuburiStats('${sessId}')">×</button>
     </div>
   `);
+}
+
+function updateSuburiStats(sessId) {
+  const container = document.getElementById('suburi-rows-' + sessId);
+  if (!container) return;
+  // 今回合計
+  let todayTotal = 0;
+  container.querySelectorAll('.suburi-row').forEach(row => {
+    todayTotal += parseInt(row.querySelector('input[type="number"]')?.value) || 0;
+  });
+  // 月別・総累計（保存済みログから）
+  const now = new Date();
+  const currentMonth = now.toISOString().slice(0, 7);
+  let monthTotal = 0, grandTotal = 0;
+  db.logs.forEach(log => {
+    (log.suburi || []).forEach(s => {
+      grandTotal += s.count || 0;
+      if (log.date && log.date.slice(0, 7) === currentMonth) monthTotal += s.count || 0;
+    });
+  });
+  // 編集中の場合は元のデータを引いて再加算しない（新規のみ加算）
+  const todayEl = document.getElementById('stat-today-' + sessId);
+  const monthEl = document.getElementById('stat-month-' + sessId);
+  const totalEl = document.getElementById('stat-total-' + sessId);
+  if (todayEl) todayEl.textContent = todayTotal.toLocaleString() + '本';
+  if (monthEl) monthEl.textContent = (monthTotal + todayTotal).toLocaleString() + '本';
+  if (totalEl) totalEl.textContent = (grandTotal + todayTotal).toLocaleString() + '本';
 }
 
 function getAllSuburiNames() {
@@ -1035,7 +1218,7 @@ function saveEntry() {
 
   if (!date || !place) { showToast('稽古日と場所を入力してください'); return; }
 
-  const isHome = place === db.homeDojo;
+  const isHome = db.homeDojos.includes(place);
   const entry = {
     id: editingId || 'keiko_' + Date.now(),
     date, time, place, isHome, shinaiId,
@@ -1051,12 +1234,8 @@ function saveEntry() {
     const shinaiOverride = block.querySelector('.session-shinai')?.value || '';
 
     if (type === 'kihon') {
-      // 入力欄に文字が残っていたら自動でタグとして追加
       const partnerInput = block.querySelector('.partner-input');
-      if (partnerInput && partnerInput.value.trim()) {
-        addPartnerTag(partnerInput.value.trim(), block.id);
-        partnerInput.value = '';
-      }
+      if (partnerInput?.value.trim()) { addPartnerTag(partnerInput.value.trim(), block.id); partnerInput.value = ''; }
       const partners = [...block.querySelectorAll('.partner-tags .partner-tag')].map(t => t.dataset.name);
       const menu = [...block.querySelectorAll('input[type="checkbox"]:checked')].map(c => c.value);
       const menuOtherInput = block.querySelectorAll('input[type="text"]');
@@ -1069,29 +1248,18 @@ function saveEntry() {
       const textareas = block.querySelectorAll('textarea');
       entry.kihon = {
         shinaiId: shinaiOverride || shinaiId,
-        partners,
-        menu,
-        menuOther,
+        partners, menu, menuOther,
         impression: textareas[0]?.value || '',
         feedback: textareas[1]?.value || ''
       };
     } else if (type === 'jigeiko') {
-      // 入力欄に文字が残っていたら自動でタグとして追加
       const partnerInput = block.querySelector('.partner-input');
-      if (partnerInput && partnerInput.value.trim()) {
-        addPartnerTag(partnerInput.value.trim(), block.id);
-        partnerInput.value = '';
-      }
+      if (partnerInput?.value.trim()) { addPartnerTag(partnerInput.value.trim(), block.id); partnerInput.value = ''; }
       const partners = [...block.querySelectorAll('.partner-tags .partner-tag')].map(t => t.dataset.name);
-      if (!partners.length) {
-        showToast('地稽古：稽古相手を入力してください');
-        valid = false;
-        return;
-      }
+      if (!partners.length) { showToast('地稽古：稽古相手を入力してください'); valid = false; return; }
       const textareas = block.querySelectorAll('textarea');
       entry.jigeiko.push({
-        shinaiId: shinaiOverride || shinaiId,
-        partners,
+        shinaiId: shinaiOverride || shinaiId, partners,
         impression: textareas[0]?.value || '',
         feedback: textareas[1]?.value || ''
       });
@@ -1100,16 +1268,8 @@ function saveEntry() {
       const inputs = block.querySelectorAll('input[type="text"]');
       const textareas = block.querySelectorAll('textarea');
       const typeOther = inputs[0]?.value || '';
-      if (!types.length && !typeOther.trim()) {
-        showToast('形稽古：形種別を最低1つ選択してください');
-        valid = false;
-        return;
-      }
-      entry.kata = {
-        types,
-        typeOther,
-        feedback: textareas[0]?.value || ''
-      };
+      if (!types.length && !typeOther.trim()) { showToast('形稽古：形種別を最低1つ選択してください'); valid = false; return; }
+      entry.kata = { types, typeOther, feedback: textareas[0]?.value || '' };
     } else if (type === 'suburi') {
       block.querySelectorAll('.suburi-row').forEach(row => {
         const name = row.querySelector('input[type="text"]')?.value?.trim() || '';
@@ -1363,7 +1523,8 @@ function showDetail(id) {
 
   html += `
     <button class="btn-submit" style="margin-top:12px;" onclick="editEntry('${log.id}')">この記録を編集する</button>
-    <button class="btn-remove" style="margin-top:8px;width:100%;padding:8px;" onclick="deleteLog('${log.id}')">この記録を削除</button>`;
+    <button class="btn-remove" style="margin-top:8px;width:100%;padding:8px;" onclick="deleteLog('${log.id}')">この記録を削除</button>
+    <button class="btn-add" style="margin-top:8px;" onclick="closeModal()">← 一覧に戻る</button>`;
 
   document.getElementById('modal-content').innerHTML = html;
   document.getElementById('modal-overlay').classList.add('open');
