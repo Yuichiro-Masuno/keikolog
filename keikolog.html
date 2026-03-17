@@ -807,7 +807,8 @@ async function save() {
 }
 
 async function saveLogToSupabase(entry) {
-  const { error } = await sb.from('keiko_logs').upsert({
+  showToast('Supabaseに保存中…');
+  const { data, error } = await sb.from('keiko_logs').upsert({
     id: entry.id,
     date: entry.date,
     time: entry.time || null,
@@ -822,6 +823,7 @@ async function saveLogToSupabase(entry) {
     suburi: entry.suburi || []
   });
   if (error) { showToast('保存エラー：' + error.message); return false; }
+  showToast('Supabase保存成功！');
   return true;
 }
 
