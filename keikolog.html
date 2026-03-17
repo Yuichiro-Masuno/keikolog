@@ -1142,7 +1142,18 @@ function saveSessionModal() {
   wrapper.dataset.type = type;
 
   const typeLabel = { kihon:'基本稽古', jigeiko:`地稽古 #${getJigeikоNumber()}`, kata:'形稽古', suburi:'素振り稽古' }[type];
-  wrapper.innerHTML = `<div class="session-block-header"><span>${typeLabel}</span><button class="btn-remove" onclick="removeSession('${id}')${type==='jigeiko'?';renumberJigeiko()':''}">削除</button></div>` + tempBlock.innerHTML;
+
+  // ヘッダーを作成
+  const header = document.createElement('div');
+  header.className = 'session-block-header';
+  header.innerHTML = `<span>${typeLabel}</span><button class="btn-remove" onclick="removeSession('${id}')${type==='jigeiko'?';renumberJigeiko()':''}">削除</button>`;
+  wrapper.appendChild(header);
+
+  // tempBlockの子要素をそのままDOM移動（入力値・チェック状態を保持）
+  while (tempBlock.firstChild) {
+    wrapper.appendChild(tempBlock.firstChild);
+  }
+
   container.appendChild(wrapper);
 
   closeSessionModal();
