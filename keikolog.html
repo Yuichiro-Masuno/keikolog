@@ -619,6 +619,7 @@ textarea { resize: vertical; min-height: 72px; }
   </div>
 
   <button class="btn-submit" onclick="saveEntry()">稽古を記録する</button>
+  <button class="btn-add" id="btn-back-to-list" style="display:none;margin-top:8px;" onclick="switchTab('list')">← 一覧に戻る</button>
 </div>
 
 <!-- ─── SETTINGS ─── -->
@@ -1315,6 +1316,7 @@ function editEntry(id) {
     const titleEl = document.getElementById('new-title');
     if (titleEl) titleEl.textContent = '✏️ 稽古を編集する';
     document.querySelector('.btn-submit').textContent = '稽古を更新する';
+    document.getElementById('btn-back-to-list').style.display = 'block';
 
     // 基本情報
     document.getElementById('f-date').value = log.date || '';
@@ -1386,27 +1388,25 @@ function editEntry(id) {
     }
 
     if (log.suburi && log.suburi.length) {
-      addSession('suburi');
-      const block = document.querySelector('.session-block[data-type="suburi"]');
-      if (block) {
-        const sid = block.id;
-        block.querySelector('.session-shinai').value = log.suburi[0]?.shinaiId || '';
-        // 自動追加された1行目を削除してから復元
-        document.getElementById('suburi-rows-' + sid).innerHTML = '';
+      const sid = addSession('suburi');
+      const rowsContainer = document.getElementById('suburi-rows-' + sid);
+      if (rowsContainer) {
+        rowsContainer.innerHTML = '';
         log.suburi.forEach(row => {
           suburiRowCount++;
           const rid = 'sr_' + suburiRowCount;
-          document.getElementById('suburi-rows-' + sid).insertAdjacentHTML('beforeend', `
+          rowsContainer.insertAdjacentHTML('beforeend', `
             <div class="suburi-row" id="${rid}">
               <div class="suggest-wrap" style="flex:1;">
                 <input type="text" value="${row.name}" placeholder="素振り種別" oninput="showSuburiSuggest(this)" style="margin-bottom:0;">
                 <div class="suggest-list" id="ssg-${rid}"></div>
               </div>
-              <input type="number" value="${row.count}" placeholder="本数" min="1" style="width:80px;margin-bottom:0;">
-              <button class="btn-remove" style="margin-top:0;" onclick="document.getElementById('${rid}').remove()">×</button>
+              <input type="number" value="${row.count}" placeholder="本数" min="1" style="width:80px;margin-bottom:0;" oninput="updateSuburiStats('${sid}')">
+              <button class="btn-remove" style="margin-top:0;" onclick="document.getElementById('${rid}').remove();updateSuburiStats('${sid}')">×</button>
             </div>
           `);
         });
+        updateSuburiStats(sid);
       }
     }
   }, 50);
@@ -1427,6 +1427,7 @@ function resetForm() {
   document.getElementById('new-title').textContent = '📅 基本情報';
   const submitBtn = document.querySelector('.btn-submit');
   if (submitBtn) submitBtn.textContent = '稽古を記録する';
+  document.getElementById('btn-back-to-list').style.display = 'none';
 }
 
 // ─── LIST ───
