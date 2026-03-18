@@ -664,6 +664,13 @@ textarea { resize: vertical; min-height: 72px; }
       <span>記録件数</span>
       <span id="record-count">0件</span>
     </div>
+    <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+      <span>素振り総累計の初期値</span>
+      <div style="display:flex;gap:8px;align-items:center;width:100%;">
+        <input type="number" id="suburi-initial-value" placeholder="0" min="0" style="width:120px;margin-bottom:0;" oninput="saveSuburiInitial()">
+        <span style="font-size:0.8rem;color:var(--ink-light);">本（keikolog導入以前の累計）</span>
+      </div>
+    </div>
     <div class="setting-row">
       <span>データをエクスポート（JSON）</span>
       <button class="btn-del" onclick="exportData()">出力</button>
@@ -720,7 +727,8 @@ let db = {
   dojos: [],
   homeDojos: [],
   shinais: [],
-  dailyNotes: {}
+  dailyNotes: {},
+  suburiInitial: 0
 };
 
 // ─── INIT ───
@@ -848,6 +856,8 @@ function renderAll() {
   renderDojoList();
   renderShinaiList();
   document.getElementById('record-count').textContent = db.logs.length + '件';
+  const initialEl = document.getElementById('suburi-initial-value');
+  if (initialEl) initialEl.value = db.suburiInitial || 0;
 }
 
 // ─── TABS ───
@@ -1101,8 +1111,10 @@ function openSessionModal(type) {
   document.getElementById('session-modal-overlay').classList.add('open');
 
   if (type === 'suburi') {
-    addSuburiRow(id);
-    updateSuburiStats(id);
+    setTimeout(() => {
+      addSuburiRow(id);
+      updateSuburiStats(id);
+    }, 50);
   }
 }
 
@@ -1215,30 +1227,45 @@ function addSuburiRow(sessId) {
   `);
 }
 
-function updateSuburiStats(sessId) {
-  const container = document.getElementById('suburi-rows-' + sessId);
-  if (!container) return;
-  // 今回合計
-  let todayTotal = 0;
-  container.querySelectorAll('.suburi-row').forEach(row => {
-    todayTotal += parseInt(row.querySelector('input[type="number"]')?.value) || 0;
-  });
-  // 月別・総累計（保存済みログから）
+function saveSuburiInitial() {
+  const val = parseInt(document.getElementById('suburi-initial-value').value) || 0;
+  db.suburiInitial = val;
+  saveLocal();
+}
+
+function calcSuburiTotals(excludeLogId) {
   const now = new Date();
   const currentMonth = now.toISOString().slice(0, 7);
-  let monthTotal = 0, grandTotal = 0;
+  let monthTotal = 0, grandTotal = db.suburiInitial || 0;
   db.logs.forEach(log => {
+    if (log.id === excludeLogId) return;
     (log.suburi || []).forEach(s => {
       grandTotal += s.count || 0;
       if (log.date && log.date.slice(0, 7) === currentMonth) monthTotal += s.count || 0;
     });
   });
-  // 編集中の場合は元のデータを引いて再加算しない（新規のみ加算）
+  return { monthTotal, grandTotal };
+}
+
+function updateSuburiStats(sessId) {
+  const container = document.getElementById('suburi-rows-' + sessId);
+  if (!container) return;
+  let todayTotal = 0;
+  container.querySelectorAll('.suburi-row').forEach(row => {
+    todayTotal += parseInt(row.querySelector('input[type="number"]')?.value) || 0;
+  });
+  const { monthTotal, grandTotal } = calcSuburiTotals(editingId);
+  const now = new Date();
+  const currentMonth = now.toISOString().slice(0, 7);
+  // 今日の稽古日付が今月なら月累計にも加算
+  const entryDate = document.getElementById('f-date')?.value || '';
+  const addToMonth = entryDate.slice(0, 7) === currentMonth;
+
   const todayEl = document.getElementById('stat-today-' + sessId);
   const monthEl = document.getElementById('stat-month-' + sessId);
   const totalEl = document.getElementById('stat-total-' + sessId);
   if (todayEl) todayEl.textContent = todayTotal.toLocaleString() + '本';
-  if (monthEl) monthEl.textContent = (monthTotal + todayTotal).toLocaleString() + '本';
+  if (monthEl) monthEl.textContent = (monthTotal + (addToMonth ? todayTotal : 0)).toLocaleString() + '本';
   if (totalEl) totalEl.textContent = (grandTotal + todayTotal).toLocaleString() + '本';
 }
 
@@ -1639,9 +1666,18 @@ function showDetail(id) {
   }
 
   if (log.suburi?.length) {
+    const thisDayTotal = log.suburi.reduce((sum, s) => sum + (s.count || 0), 0);
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const { monthTotal, grandTotal } = calcSuburiTotals(log.id);
+    const addToMonth = log.date?.slice(0, 7) === currentMonth;
     html += `<div class="d-section">
       <div class="d-section-title">素振り稽古</div>
       ${log.suburi.map(s => `<div class="d-value">${s.name}：${s.count}本</div>`).join('')}
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;">
+        <div class="suburi-stat"><div class="suburi-stat-label">この稽古合計</div><div class="suburi-stat-value">${thisDayTotal.toLocaleString()}本</div></div>
+        <div class="suburi-stat"><div class="suburi-stat-label">今月累計</div><div class="suburi-stat-value">${(monthTotal + (addToMonth ? thisDayTotal : 0)).toLocaleString()}本</div></div>
+        <div class="suburi-stat"><div class="suburi-stat-label">総累計</div><div class="suburi-stat-value">${(grandTotal + thisDayTotal).toLocaleString()}本</div></div>
+      </div>
     </div>`;
   }
 
