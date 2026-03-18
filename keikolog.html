@@ -786,7 +786,8 @@ async function syncFromSupabase() {
         kihon: r.kihon,
         jigeiko: r.jigeiko || [],
         kata: r.kata,
-        suburi: r.suburi || []
+        suburi: r.suburi || [],
+        suburiSnapshot: r.suburi_snapshot || null
       }));
     }
     if (dojos) {
@@ -828,7 +829,8 @@ async function saveLogToSupabase(entry) {
     kihon: entry.kihon || null,
     jigeiko: entry.jigeiko || [],
     kata: entry.kata || null,
-    suburi: entry.suburi || []
+    suburi: entry.suburi || [],
+    suburi_snapshot: entry.suburiSnapshot || null
   });
   if (error) { showToast('保存エラー：' + error.message); return false; }
   showToast('Supabase保存成功！');
@@ -1303,11 +1305,12 @@ function copyLastSuburi(sessId) {
           <input type="text" value="${row.name}" placeholder="素振り種別" oninput="showSuburiSuggest(this)" style="margin-bottom:0;">
           <div class="suggest-list" id="ssg-${rid}"></div>
         </div>
-        <input type="number" value="${row.count}" placeholder="本数" min="1" style="width:80px;margin-bottom:0;">
-        <button class="btn-remove" style="margin-top:0;" onclick="document.getElementById('${rid}').remove()">×</button>
+        <input type="number" value="${row.count}" placeholder="本数" min="1" style="width:80px;margin-bottom:0;" oninput="updateSuburiStats('${sessId}')">
+        <button class="btn-remove" style="margin-top:0;" onclick="document.getElementById('${rid}').remove();updateSuburiStats('${sessId}')">×</button>
       </div>
     `);
   });
+  updateSuburiStats(sessId);
   showToast('前回の内容をコピーしました');
 }
 
@@ -1429,6 +1432,19 @@ async function saveEntry() {
   });
 
   if (!valid) return;
+
+  // 素振り集計スナップショットを保存時に記録
+  if (entry.suburi && entry.suburi.length) {
+    const thisDayTotal = entry.suburi.reduce((sum, s) => sum + (s.count || 0), 0);
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const { monthTotal, grandTotal } = calcSuburiTotals(editingId);
+    const addToMonth = entry.date?.slice(0, 7) === currentMonth;
+    entry.suburiSnapshot = {
+      dayTotal: thisDayTotal,
+      monthTotal: monthTotal + (addToMonth ? thisDayTotal : 0),
+      grandTotal: grandTotal + thisDayTotal
+    };
+  }
 
   if (editingId) {
     const idx = db.logs.findIndex(l => l.id === editingId);
@@ -1666,17 +1682,26 @@ function showDetail(id) {
   }
 
   if (log.suburi?.length) {
-    const thisDayTotal = log.suburi.reduce((sum, s) => sum + (s.count || 0), 0);
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    const { monthTotal, grandTotal } = calcSuburiTotals(log.id);
-    const addToMonth = log.date?.slice(0, 7) === currentMonth;
+    const snap = log.suburiSnapshot;
+    const thisDayTotal = snap ? snap.dayTotal : log.suburi.reduce((sum, s) => sum + (s.count || 0), 0);
+    let monthTotalDisp, grandTotalDisp;
+    if (snap) {
+      monthTotalDisp = snap.monthTotal;
+      grandTotalDisp = snap.grandTotal;
+    } else {
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const { monthTotal, grandTotal } = calcSuburiTotals(log.id);
+      const addToMonth = log.date?.slice(0, 7) === currentMonth;
+      monthTotalDisp = monthTotal + (addToMonth ? thisDayTotal : 0);
+      grandTotalDisp = grandTotal + thisDayTotal;
+    }
     html += `<div class="d-section">
       <div class="d-section-title">素振り稽古</div>
       ${log.suburi.map(s => `<div class="d-value">${s.name}：${s.count}本</div>`).join('')}
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;">
         <div class="suburi-stat"><div class="suburi-stat-label">この稽古合計</div><div class="suburi-stat-value">${thisDayTotal.toLocaleString()}本</div></div>
-        <div class="suburi-stat"><div class="suburi-stat-label">今月累計</div><div class="suburi-stat-value">${(monthTotal + (addToMonth ? thisDayTotal : 0)).toLocaleString()}本</div></div>
-        <div class="suburi-stat"><div class="suburi-stat-label">総累計</div><div class="suburi-stat-value">${(grandTotal + thisDayTotal).toLocaleString()}本</div></div>
+        <div class="suburi-stat"><div class="suburi-stat-label">今月累計</div><div class="suburi-stat-value">${monthTotalDisp.toLocaleString()}本</div></div>
+        <div class="suburi-stat"><div class="suburi-stat-label">総累計</div><div class="suburi-stat-value">${grandTotalDisp.toLocaleString()}本</div></div>
       </div>
     </div>`;
   }
