@@ -1489,15 +1489,15 @@ async function saveEntry() {
     document.querySelector('.btn-submit').textContent = '稽古を記録する';
     document.getElementById('new-title').textContent = '📅 基本情報';
     saveLocal();
+    await saveLogToSupabase(entry);
     if (entry.suburi?.length) await recalcSuburiSnapshots(entry.date);
-    await saveLogToSupabase(db.logs.find(l => l.id === entry.id) || entry);
     renderLogList();
     showToast('稽古を更新しました');
   } else {
     db.logs.unshift(entry);
     saveLocal();
+    await saveLogToSupabase(entry);
     if (entry.suburi?.length) await recalcSuburiSnapshots(entry.date);
-    await saveLogToSupabase(db.logs.find(l => l.id === entry.id) || entry);
     renderLogList();
     showToast('稽古を記録しました');
   }
