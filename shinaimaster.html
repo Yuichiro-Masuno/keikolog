@@ -574,7 +574,7 @@ textarea { resize: vertical; min-height: 72px; }
 <script>
 // ─── SUPABASE ───
 const SUPABASE_URL = 'https://hnkncnqktdftxuupvypp.supabase.co';
-const SUPABASE_KEY = 'ここにanon_keyを貼り付けてください';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhua25jbnFrdGRmdHh1dXB2eXBwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MjI3MTAsImV4cCI6MjA4OTI5ODcxMH0.QX75EilYZ2oj-IcUgxJniIrxhZHV3nhGI14fq-sS0F8';
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -777,11 +777,11 @@ async function saveShinai() {
     hidari_te: parseInt(document.getElementById('f-hidari').value) || null,
     weight_take: parseInt(document.getElementById('f-weight-take').value) || null,
     weight_after: parseInt(document.getElementById('f-weight-after').value) || null,
-    saki_setsu: document.getElementById('f-saki-setsu').value || null,
-    do_setsu: document.getElementById('f-do-setsu').value || null,
+    saki_setsu: parseFloat(document.getElementById('f-saki-setsu').value) || null,
+    do_setsu: parseFloat(document.getElementById('f-do-setsu').value) || null,
     go_no_setsu: document.getElementById('f-go-setsu').value || null,
     tsuka_length: document.getElementById('f-tsuka-length').value || null,
-    jyushin: document.getElementById('f-jyushin').value || null,
+    jyushin: parseFloat(document.getElementById('f-jyushin').value) || null,
     tsuka_kawa_length: document.getElementById('f-tsuka-kawa-length').value || null,
     saki_kawa_length: document.getElementById('f-saki-kawa-length').value || null,
     saki_kawa_sokutei: document.getElementById('f-saki-kawa-sokutei').value || null,
