@@ -1229,10 +1229,54 @@ function addSuburiRow(sessId) {
   `);
 }
 
-function saveSuburiInitial() {
+async function saveSuburiInitial() {
   const val = parseInt(document.getElementById('suburi-initial-value').value) || 0;
   db.suburiInitial = val;
   saveLocal();
+  await recalcSuburiSnapshots(null); // 全レコード再計算
+  showToast('初期値を更新しました');
+}
+
+// fromDate以降（nullなら全件）のsuburiスナップショットを再計算して保存
+async function recalcSuburiSnapshots(fromDate) {
+  // 日付昇順でソートして順番に計算
+  const sorted = [...db.logs]
+    .filter(l => l.suburi?.length)
+    .sort((a, b) => a.date > b.date ? 1 : -1);
+
+  // fromDate以降のみ対象
+  const targets = fromDate
+    ? sorted.filter(l => l.date >= fromDate)
+    : sorted;
+
+  if (!targets.length) return;
+
+  // 各対象レコードのスナップショットを再計算
+  for (const log of targets) {
+    const dayTotal = log.suburi.reduce((sum, s) => sum + (s.count || 0), 0);
+    // そのレコードより前の全素振りを合算
+    const prevLogs = sorted.filter(l => l.date < log.date || (l.date === log.date && l.id < log.id));
+    let grandRunning = db.suburiInitial || 0;
+    let monthRunning = 0;
+    const logMonth = log.date?.slice(0, 7);
+    prevLogs.forEach(l => {
+      const cnt = l.suburi.reduce((sum, s) => sum + (s.count || 0), 0);
+      grandRunning += cnt;
+      if (l.date?.slice(0, 7) === logMonth) monthRunning += cnt;
+    });
+    log.suburiSnapshot = {
+      dayTotal,
+      monthTotal: monthRunning + dayTotal,
+      grandTotal: grandRunning + dayTotal
+    };
+  }
+
+  saveLocal();
+  // Supabaseにも反映
+  for (const log of targets) {
+    await sb.from('keiko_logs').update({ suburi_snapshot: log.suburiSnapshot }).eq('id', log.id);
+  }
+  renderLogList();
 }
 
 function calcSuburiTotals(excludeLogId) {
@@ -1717,12 +1761,21 @@ function showDetail(id) {
 
 async function deleteLog(id) {
   if (!confirm('この稽古記録を削除しますか？')) return;
+  const deletedLog = db.logs.find(l => l.id === id);
+  const deletedDate = deletedLog?.date;
+  const hadSuburi = deletedLog?.suburi?.length > 0;
+
   db.logs = db.logs.filter(l => l.id !== id);
   saveLocal();
   await sb.from('keiko_logs').delete().eq('id', id);
   renderLogList();
   closeModal();
   showToast('記録を削除しました');
+
+  // 素振りがある記録を削除した場合、その日付以降を再計算
+  if (hadSuburi && deletedDate) {
+    await recalcSuburiSnapshots(deletedDate);
+  }
 }
 
 function closeModal(e) {
