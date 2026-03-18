@@ -1477,19 +1477,6 @@ async function saveEntry() {
 
   if (!valid) return;
 
-  // 素振り集計スナップショットを保存時に記録
-  if (entry.suburi && entry.suburi.length) {
-    const thisDayTotal = entry.suburi.reduce((sum, s) => sum + (s.count || 0), 0);
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    const { monthTotal, grandTotal } = calcSuburiTotals(editingId);
-    const addToMonth = entry.date?.slice(0, 7) === currentMonth;
-    entry.suburiSnapshot = {
-      dayTotal: thisDayTotal,
-      monthTotal: monthTotal + (addToMonth ? thisDayTotal : 0),
-      grandTotal: grandTotal + thisDayTotal
-    };
-  }
-
   if (editingId) {
     const idx = db.logs.findIndex(l => l.id === editingId);
     if (idx !== -1) db.logs[idx] = entry;
@@ -1497,13 +1484,15 @@ async function saveEntry() {
     document.querySelector('.btn-submit').textContent = '稽古を記録する';
     document.getElementById('new-title').textContent = '📅 基本情報';
     saveLocal();
-    await saveLogToSupabase(entry);
+    if (entry.suburi?.length) await recalcSuburiSnapshots(entry.date);
+    await saveLogToSupabase(db.logs.find(l => l.id === entry.id) || entry);
     renderLogList();
     showToast('稽古を更新しました');
   } else {
     db.logs.unshift(entry);
     saveLocal();
-    await saveLogToSupabase(entry);
+    if (entry.suburi?.length) await recalcSuburiSnapshots(entry.date);
+    await saveLogToSupabase(db.logs.find(l => l.id === entry.id) || entry);
     renderLogList();
     showToast('稽古を記録しました');
   }
