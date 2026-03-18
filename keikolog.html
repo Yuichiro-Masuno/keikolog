@@ -822,24 +822,32 @@ async function save() {
 
 async function saveLogToSupabase(entry) {
   showToast('Supabaseに保存中…');
-  const { data, error } = await sb.from('keiko_logs').upsert({
-    id: entry.id,
-    date: entry.date,
-    time: entry.time || null,
-    place: entry.place,
-    is_home: entry.isHome,
-    shinai_id: entry.shinaiId || null,
-    goal: entry.goal || null,
-    review: entry.review || null,
-    kihon: entry.kihon || null,
-    jigeiko: entry.jigeiko || [],
-    kata: entry.kata || null,
-    suburi: entry.suburi || [],
-    suburi_snapshot: entry.suburiSnapshot || null
-  });
-  if (error) { showToast('保存エラー：' + error.message); return false; }
-  showToast('Supabase保存成功！');
-  return true;
+  try {
+    const { data, error } = await sb.from('keiko_logs').upsert({
+      id: entry.id,
+      date: entry.date,
+      time: entry.time || null,
+      place: entry.place,
+      is_home: entry.isHome,
+      shinai_id: entry.shinaiId || null,
+      goal: entry.goal || null,
+      review: entry.review || null,
+      kihon: entry.kihon || null,
+      jigeiko: entry.jigeiko || [],
+      kata: entry.kata || null,
+      suburi: entry.suburi || [],
+      suburi_snapshot: entry.suburiSnapshot || null
+    });
+    if (error) {
+      alert('Supabase保存エラー：' + error.message + '\nコード：' + error.code);
+      return false;
+    }
+    showToast('Supabase保存成功！');
+    return true;
+  } catch(e) {
+    alert('Supabase例外エラー：' + e.message);
+    return false;
+  }
 }
 
 async function saveDojosToSupabase() {
