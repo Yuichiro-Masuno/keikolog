@@ -787,6 +787,8 @@ async function syncFromSupabase() {
       !['引退', '修理依頼中', '修理完了'].includes(s.status)
     );
 
+    alert('全件: ' + JSON.stringify(shinais?.map(s=>({id:s.id,status:s.status}))) + '\n使用中: ' + filteredShinais.filter(s=>s.status==='使用中').length + '件');
+
     if (logs) {
       db.logs = logs.map(r => ({
         id: r.id,
