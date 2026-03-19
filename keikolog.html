@@ -647,9 +647,12 @@ textarea { resize: vertical; min-height: 72px; }
     <ul class="setting-list" id="dojo-list"></ul>
   </div>
 
-  <!-- 竹刀マスター（仮） -->
+  <!-- 竹刀マスター -->
   <div class="card">
-    <div class="card-title">⚔️ 竹刀マスター（shinailog連携予定）</div>
+    <div class="card-title">⚔️ 竹刀マスター</div>
+    <div style="font-size:0.75rem;color:var(--ink-light);margin-bottom:10px;line-height:1.5;">
+      shinaimasterと連携済み（引退以外を表示）。稽古に持参した竹刀を追加できます。
+    </div>
     <div class="row" style="align-items:flex-end;">
       <div>
         <label>竹刀ID / 名称</label>
@@ -772,11 +775,12 @@ async function syncFromSupabase() {
       .select('*')
       .order('id');
 
-    // 竹刀
+    // 竹刀（shinai_masterから取得、引退・修理依頼中・修理完了を除く）
     const { data: shinais } = await sb
-      .from('shinais')
-      .select('*')
-      .order('created_at');
+      .from('shinai_master')
+      .select('id, meigara, status')
+      .not('status', 'in', `(引退,修理依頼中,修理完了)`)
+      .order('id');
 
     if (logs) {
       db.logs = logs.map(r => ({
@@ -800,7 +804,10 @@ async function syncFromSupabase() {
       db.homeDojos = dojos.filter(d => d.is_home).map(d => d.name);
     }
     if (shinais) {
-      db.shinais = shinais.map(s => ({ id: s.id, name: s.name }));
+      db.shinais = shinais.map(s => ({
+        id: s.id,
+        name: `${s.id}（${s.meigara || ''}）`
+      }));
     }
 
     saveLocal();
@@ -1017,10 +1024,14 @@ function renderShinaiSelects() {
 }
 
 function renderShinaiList() {
-  const ul = document.getElementById('shinai-list');
-  if (!db.shinais.length) { ul.innerHTML = '<li style="font-size:0.8rem;color:var(--ink-light);padding:8px 0;">竹刀が登録されていません</li>'; return; }
-  ul.innerHTML = db.shinais.map(s =>
-    `<li class="setting-list-item"><span>${s.name} <span style="font-size:0.68rem;color:var(--ink-light);">${s.id}</span></span><button class="btn-del" onclick="deleteShinai('${s.id}')">削除</button></li>`
+  const el = document.getElementById('shinai-list');
+  if (!el) return;
+  if (!db.shinais.length) {
+    el.innerHTML = 'shinaimasterに竹刀が登録されていません';
+    return;
+  }
+  el.innerHTML = db.shinais.map(s =>
+    `<div style="padding:4px 0;border-bottom:1px solid var(--paper-dark);">${s.name}</div>`
   ).join('');
 }
 
