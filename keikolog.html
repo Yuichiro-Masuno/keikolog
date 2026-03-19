@@ -776,11 +776,13 @@ async function syncFromSupabase() {
       .order('id');
 
     // 竹刀（shinai_masterから取得、引退・修理依頼中・修理完了を除く）
-    const { data: shinais } = await sb
+    const { data: shinais, error: shinaiError } = await sb
       .from('shinai_master')
       .select('id, meigara, status')
       .not('status', 'in', `(引退,修理依頼中,修理完了)`)
       .order('id');
+
+    alert('shinai取得結果: ' + JSON.stringify(shinais) + ' / エラー: ' + JSON.stringify(shinaiError));
 
     if (logs) {
       db.logs = logs.map(r => ({
