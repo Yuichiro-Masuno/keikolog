@@ -651,18 +651,19 @@ textarea { resize: vertical; min-height: 72px; }
   <div class="card">
     <div class="card-title">⚔️ 竹刀マスター</div>
     <div style="font-size:0.75rem;color:var(--ink-light);margin-bottom:10px;line-height:1.5;">
-      shinaimasterと連携済み（引退以外を表示）。稽古に持参した竹刀を追加できます。
+      shinaimasterと連携。稽古記録では「使用中」の竹刀のみ選択できます。<br>
+      稽古に持参した追加竹刀は下から登録できます。
     </div>
-    <div class="row" style="align-items:flex-end;">
+    <ul class="setting-list" id="shinai-list"></ul>
+    <div class="row" style="align-items:flex-end;margin-top:10px;">
       <div>
-        <label>竹刀ID / 名称</label>
+        <label>追加竹刀ID / 名称</label>
         <input type="text" id="shinai-name-input" placeholder="例：竹刀A">
       </div>
       <div style="flex:0;">
         <button class="btn-submit" style="padding:9px 16px;margin-top:0;font-size:0.82rem;" onclick="addShinai()">追加</button>
       </div>
     </div>
-    <ul class="setting-list" id="shinai-list"></ul>
   </div>
 
   <!-- データ -->
@@ -735,6 +736,7 @@ let db = {
   dojos: [],
   homeDojos: [],
   shinais: [],
+  shinaisAll: [],
   dailyNotes: {},
   suburiInitial: 0
 };
@@ -807,10 +809,20 @@ async function syncFromSupabase() {
       db.homeDojos = dojos.filter(d => d.is_home).map(d => d.name);
     }
     if (filteredShinais) {
-      db.shinais = filteredShinais.map(s => ({
+      // 設定画面表示用：引退・修理除く全件（ステータス情報も保持）
+      db.shinaisAll = filteredShinais.map(s => ({
         id: s.id,
-        name: `${s.id}（${s.meigara || ''}）`
+        name: `${s.id}（${s.meigara || ''}）`,
+        status: s.status
       }));
+      // 稽古記録用：使用中のみ
+      db.shinais = filteredShinais
+        .filter(s => s.status === '使用中')
+        .map(s => ({
+          id: s.id,
+          name: `${s.id}（${s.meigara || ''}）`,
+          status: s.status
+        }));
     }
 
     saveLocal();
@@ -1029,13 +1041,20 @@ function renderShinaiSelects() {
 function renderShinaiList() {
   const el = document.getElementById('shinai-list');
   if (!el) return;
-  if (!db.shinais.length) {
-    el.innerHTML = 'shinaimasterに竹刀が登録されていません';
+  const all = db.shinaisAll || [];
+  if (!all.length) {
+    el.innerHTML = '<li style="font-size:0.8rem;color:var(--ink-light);padding:8px 0;">shinaimasterに竹刀が登録されていません</li>';
     return;
   }
-  el.innerHTML = db.shinais.map(s =>
-    `<div style="padding:4px 0;border-bottom:1px solid var(--paper-dark);">${s.name}</div>`
-  ).join('');
+  const statusColors = {
+    '使用中': '#2d6a2d', '試合用': '#8b6000', '試用': '#2d4a8b', '未使用': 'var(--ink-light)'
+  };
+  el.innerHTML = all.map(s => `
+    <li class="setting-list-item">
+      <span style="font-size:0.82rem;">${s.name}</span>
+      <span style="font-size:0.72rem;color:${statusColors[s.status] || 'var(--ink-light)'};">${s.status}</span>
+    </li>
+  `).join('');
 }
 
 // ─── SESSIONS ───
