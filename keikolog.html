@@ -809,13 +809,7 @@ async function syncFromSupabase() {
       db.homeDojos = dojos.filter(d => d.is_home).map(d => d.name);
     }
     if (filteredShinais) {
-      // 設定画面表示用：引退・修理除く全件（ステータス情報も保持）
-      db.shinaisAll = filteredShinais.map(s => ({
-        id: s.id,
-        name: `${s.id}（${s.meigara || ''}）`,
-        status: s.status
-      }));
-      // 稽古記録用：使用中のみ
+      // 稽古記録・設定画面ともに使用中のみ
       db.shinais = filteredShinais
         .filter(s => s.status === '使用中')
         .map(s => ({
@@ -823,6 +817,7 @@ async function syncFromSupabase() {
           name: `${s.id}（${s.meigara || ''}）`,
           status: s.status
         }));
+      db.shinaisAll = db.shinais;
     }
 
     saveLocal();
