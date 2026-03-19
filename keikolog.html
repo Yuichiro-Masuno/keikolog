@@ -779,10 +779,11 @@ async function syncFromSupabase() {
     const { data: shinais, error: shinaiError } = await sb
       .from('shinai_master')
       .select('id, meigara, status')
-      .not('status', 'in', `(引退,修理依頼中,修理完了)`)
       .order('id');
 
-    alert('shinai取得結果: ' + JSON.stringify(shinais) + ' / エラー: ' + JSON.stringify(shinaiError));
+    const filteredShinais = (shinais || []).filter(s =>
+      !['引退', '修理依頼中', '修理完了'].includes(s.status)
+    );
 
     if (logs) {
       db.logs = logs.map(r => ({
@@ -805,8 +806,8 @@ async function syncFromSupabase() {
       db.dojos = dojos.map(d => d.name);
       db.homeDojos = dojos.filter(d => d.is_home).map(d => d.name);
     }
-    if (shinais) {
-      db.shinais = shinais.map(s => ({
+    if (filteredShinais) {
+      db.shinais = filteredShinais.map(s => ({
         id: s.id,
         name: `${s.id}（${s.meigara || ''}）`
       }));
