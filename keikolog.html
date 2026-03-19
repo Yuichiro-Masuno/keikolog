@@ -826,6 +826,7 @@ async function syncFromSupabase() {
     renderAll();
     showToast('同期完了');
   } catch(e) {
+    alert('syncエラー: ' + e.message);
     showToast('オフラインモードで動作中');
   }
 }
