@@ -710,7 +710,7 @@ textarea { resize: vertical; min-height: 72px; }
     <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
       <span>素振り総累計の初期値</span>
       <div style="display:flex;gap:8px;align-items:center;width:100%;">
-        <input type="number" id="suburi-initial-value" placeholder="0" min="0" style="width:120px;margin-bottom:0;" oninput="saveSuburiInitial()">
+        <input type="number" id="suburi-initial-value" placeholder="0" min="0" style="width:120px;margin-bottom:0;" onchange="saveSuburiInitial()">
         <span style="font-size:0.8rem;color:var(--ink-light);">本（keikolog導入以前の累計）</span>
       </div>
     </div>
@@ -1337,12 +1337,17 @@ function addSuburiRow(sessId) {
   `);
 }
 
+let suburiInitialSaving = Promise.resolve();
 async function saveSuburiInitial() {
-  const val = parseInt(document.getElementById('suburi-initial-value').value) || 0;
-  db.suburiInitial = val;
-  saveLocal();
-  await recalcSuburiSnapshots(null); // 全レコード再計算
-  showToast('初期値を更新しました');
+  // 入力のたびに走る再計算が追い越し合わないよう、順番に1件ずつ実行
+  suburiInitialSaving = suburiInitialSaving.then(async () => {
+    const val = parseInt(document.getElementById('suburi-initial-value').value) || 0;
+    db.suburiInitial = val;
+    saveLocal();
+    await recalcSuburiSnapshots(null); // 全レコード再計算
+    showToast('初期値を更新しました');
+  });
+  await suburiInitialSaving;
 }
 
 // fromDate以降（nullなら全件）のsuburiスナップショットを再計算して保存
