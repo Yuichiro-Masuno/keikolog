@@ -567,7 +567,7 @@ textarea { resize: vertical; min-height: 72px; }
 /* Suburi stats */
 .suburi-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   margin-top: 10px;
   margin-bottom: 4px;
@@ -575,9 +575,10 @@ textarea { resize: vertical; min-height: 72px; }
 .suburi-stat {
   background: var(--paper-dark);
   border-radius: 6px;
-  padding: 6px 8px;
+  padding: 6px 4px;
   text-align: center;
   border: 1px solid var(--border);
+  min-width: 0;
 }
 .suburi-stat-label {
   font-size: 0.62rem;
@@ -585,7 +586,9 @@ textarea { resize: vertical; min-height: 72px; }
   margin-bottom: 2px;
 }
 .suburi-stat-value {
-  font-size: 0.95rem;
+  font-size: clamp(0.72rem, 3.6vw, 0.95rem);
+  white-space: nowrap;
+  letter-spacing: -0.02em;
   font-weight: 700;
   color: var(--ink);
   font-family: 'Noto Serif JP', serif;
@@ -811,6 +814,40 @@ async function init() {
   await syncFromSupabase();
 }
 
+async function refreshShinais(render = true) {
+  // shinai_masterの最新を取得（失敗時は既存の一覧を保持）
+  try {
+    const { data, error } = await sb
+      .from('shinai_master')
+      .select('id, meigara, status')
+      .order('id');
+    if (error || !data) return;
+    db.shinais = data
+      .filter(s => s.status === '使用中')
+      .map(s => ({ id: s.id, name: `${s.id}（${s.meigara || ''}）`, status: s.status }));
+    db.shinaisAll = db.shinais;
+    saveLocal();
+    if (render) {
+      renderShinaiSelects();
+      renderShinaiList();
+    }
+  } catch(e) {}
+}
+
+// 竹刀マスタ側で修正後、アプリに戻ったときに自動で反映
+let lastShinaiRefresh = 0;
+function refreshShinaisThrottled() {
+  const t = Date.now();
+  if (t - lastShinaiRefresh < 3000) return;
+  lastShinaiRefresh = t;
+  refreshShinais(true);
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') refreshShinaisThrottled();
+});
+window.addEventListener('pageshow', refreshShinaisThrottled);
+window.addEventListener('focus', refreshShinaisThrottled);
+
 async function syncFromSupabase() {
   try {
     showToast('データを同期中…');
@@ -826,16 +863,6 @@ async function syncFromSupabase() {
       .from('dojos')
       .select('*')
       .order('id');
-
-    // 竹刀（shinai_masterから取得、引退・修理依頼中・修理完了を除く）
-    const { data: shinais, error: shinaiError } = await sb
-      .from('shinai_master')
-      .select('id, meigara, status')
-      .order('id');
-
-    const filteredShinais = (shinais || []).filter(s =>
-      !['引退', '修理依頼中', '修理完了'].includes(s.status)
-    );
 
     if (logs) {
       db.logs = logs.map(r => ({
@@ -858,17 +885,7 @@ async function syncFromSupabase() {
       db.dojos = dojos.map(d => d.name);
       db.homeDojos = dojos.filter(d => d.is_home).map(d => d.name);
     }
-    if (filteredShinais) {
-      // 稽古記録・設定画面ともに使用中のみ
-      db.shinais = filteredShinais
-        .filter(s => s.status === '使用中')
-        .map(s => ({
-          id: s.id,
-          name: `${s.id}（${s.meigara || ''}）`,
-          status: s.status
-        }));
-      db.shinaisAll = db.shinais;
-    }
+    await refreshShinais(false);
 
     saveLocal();
     renderAll();
